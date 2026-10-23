@@ -1,0 +1,40 @@
+{
+  "SchemaVersion": 2,
+  "Repository": "GTFO-Third-Person-Camera-and-HUD",
+  "Modules": [
+    {
+      "Id": "ThirdPerson.Contracts",
+      "Assembly": "PreLuna.ThirdPerson.Contracts",
+      "Guid": null,
+      "Version": null,
+      "DependencyGuids": [],
+      "CompileDependencies": [],
+      "Kind": "contract"
+    },
+    {
+      "Id": "ThirdPerson",
+      "Assembly": "PreLuna.ThirdPerson",
+      "Guid": "PreLuna.ThirdPerson",
+      "Version": "0.5.0",
+      "DependencyGuids": [],
+      "CompileDependencies": [
+        "ThirdPerson.Contracts"
+      ],
+      "Kind": "managed"
+    },
+    {
+      "Id": "ThirdPersonHUD",
+      "Assembly": "PreLuna.ThirdPersonHUD",
+      "Guid": "PreLuna.ThirdPersonHUD",
+      "Version": "0.11.0",
+      "DependencyGuids": [
+        "PreLuna.ThirdPerson"
+      ],
+      "CompileDependencies": [
+        "ThirdPerson.Contracts",
+        "ThirdPerson"
+      ],
+      "Kind": "managed"
+    }
+  ]
+}
