@@ -1,5 +1,5 @@
 {
-  "SchemaVersion": 2,
+  "SchemaVersion": 3,
   "Repository": "GTFO-Third-Person-Camera-and-HUD",
   "Modules": [
     {
@@ -9,7 +9,12 @@
       "Version": null,
       "DependencyGuids": [],
       "CompileDependencies": [],
-      "Kind": "contract"
+      "Kind": "contract",
+      "ModuleRoot": "Shared/ThirdPerson.Contracts",
+      "SourceRoot": "Shared/ThirdPerson.Contracts/src",
+      "Name": "第三人称共享接口（非独立MOD）",
+      "DependencyDetails": [],
+      "TestsRoot": "Shared/ThirdPerson.Contracts/tests"
     },
     {
       "Id": "ThirdPerson",
@@ -20,7 +25,11 @@
       "CompileDependencies": [
         "ThirdPerson.Contracts"
       ],
-      "Kind": "managed"
+      "Kind": "managed",
+      "ModuleRoot": "ThirdPerson",
+      "SourceRoot": "ThirdPerson/src",
+      "Name": "第三人称镜头",
+      "DependencyDetails": []
     },
     {
       "Id": "ThirdPersonHUD",
@@ -34,7 +43,26 @@
         "ThirdPerson.Contracts",
         "ThirdPerson"
       ],
-      "Kind": "managed"
+      "Kind": "managed",
+      "ModuleRoot": "ThirdPersonHUD",
+      "SourceRoot": "ThirdPersonHUD/src",
+      "Name": "第三人称HUD",
+      "DependencyDetails": [
+        {
+          "Guid": "PreLuna.ThirdPerson",
+          "DependencyFlags": 1,
+          "Kind": "Hard",
+          "DeclaredVersion": null
+        }
+      ],
+      "TestsRoot": "ThirdPersonHUD/tests"
     }
-  ]
+  ],
+  "InputRoots": [
+    "IntegrationTests",
+    "Shared",
+    "ThirdPerson",
+    "ThirdPersonHUD"
+  ],
+  "TestPlanPath": "IntegrationTests/recipes.json"
 }
