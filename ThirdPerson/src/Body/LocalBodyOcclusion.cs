@@ -14,11 +14,12 @@ namespace PreLuna.ThirdPerson.Body
             internal Renderer Renderer;
             internal Material[] Original,Transparent;
             internal Color[] Colors;
-            internal bool Applied,Hidden;
+            internal bool Applied;
         }
         readonly Dictionary<long,Entry> entries=new();
         internal int TransparentRenderers {get;private set;}
         internal int HiddenRenderers {get;private set;}
+        internal int PreservedRenderers {get;private set;}
         Entry Get(Renderer renderer)
         {
             long id=renderer.Pointer.ToInt64();
@@ -39,25 +40,22 @@ namespace PreLuna.ThirdPerson.Body
             }
             return entry;
         }
-        internal void Begin(){TransparentRenderers=0;HiddenRenderers=0;}
+        internal void Begin(){TransparentRenderers=0;HiddenRenderers=0;PreservedRenderers=0;}
         internal void Apply(Renderer renderer,Vector3 camera,bool enabled,float near,float far)
         {
             if(!enabled||renderer==null)return;
             float clearance=(renderer.bounds.ClosestPoint(camera)-camera).magnitude;
             var entry=Get(renderer);
-            var decision=BodyOcclusionPolicy.Evaluate(clearance,near,far,entry.Hidden);
+            // A bounds test cannot identify the obstructing triangles. On GTFO shaders
+            // hiding the entire renderer removes the torso/legs, not a local patch.
+            // Keep unsupported materials opaque, even with an existing fade=true CFG.
+            if(entry.Transparent==null){PreservedRenderers++;return;}
+            var decision=BodyOcclusionPolicy.Evaluate(clearance,near,far,false);
             float opacity=decision.Opacity;
             if(entry.Transparent!=null&&opacity<.999f)
             {
                 for(int i=0;i<entry.Transparent.Length;i++){var color=entry.Colors[i];color.a*=opacity;entry.Transparent[i].SetColor("_Color",color);}
                 renderer.sharedMaterials=entry.Transparent;entry.Applied=true;TransparentRenderers++;
-            }
-            else if(entry.Transparent==null)
-            {
-                // GTFO shaders do not have a documented alpha contract. Preserve their materials.
-                // Hysteresis avoids toggling an entire mesh at a single distance threshold.
-                entry.Hidden=decision.Hidden;
-                if(entry.Hidden){renderer.shadowCastingMode=ShadowCastingMode.ShadowsOnly;HiddenRenderers++;}
             }
         }
         internal void Restore()

@@ -75,7 +75,7 @@ namespace PreLuna.ThirdPersonHUD.Core
             hasContent = false; content = default;
             try
             {
-                if (!source!.TryCapture(request, out var snapshot)) { Failure("个人数据暂不可用。"); return; }
+                if (!source!.TryCapture(request, out var snapshot)) { Failure((source as IHudContentFailureSource)?.LastCaptureFailure ?? "个人数据暂不可用。"); return; }
                 var fresh = current with { NowSeconds = executor.NowSeconds };
                 if (snapshot.Header.Origin.Input != request.Origin || snapshot.Header.WorkEpoch != workEpoch
                     || snapshot.Header.ContentRevision != revision

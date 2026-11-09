@@ -20,7 +20,7 @@
       "Id": "ThirdPerson",
       "Assembly": "PreLuna.ThirdPerson",
       "Guid": "PreLuna.ThirdPerson",
-      "Version": "0.5.0",
+      "Version": "0.6.3",
       "DependencyGuids": [],
       "CompileDependencies": [
         "ThirdPerson.Contracts"
@@ -28,6 +28,7 @@
       "Kind": "managed",
       "ModuleRoot": "ThirdPerson",
       "SourceRoot": "ThirdPerson/src",
+      "TestsRoot": "ThirdPerson/tests",
       "Name": "第三人称镜头",
       "DependencyDetails": []
     },
@@ -35,7 +36,7 @@
       "Id": "ThirdPersonHUD",
       "Assembly": "PreLuna.ThirdPersonHUD",
       "Guid": "PreLuna.ThirdPersonHUD",
-      "Version": "0.11.0",
+      "Version": "0.13.1",
       "DependencyGuids": [
         "PreLuna.ThirdPerson"
       ],

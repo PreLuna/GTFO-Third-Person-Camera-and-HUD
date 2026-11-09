@@ -5,7 +5,8 @@ using PreLuna.ThirdPersonHUD.Content;
 namespace PreLuna.ThirdPersonHUD.Panel
 {
     public readonly record struct HudTeamRow(int Slot, string Name, string Kind, string Status, string Health,
-        string Primary, string Secondary, string Tool, string Infection, string Cue, int Priority, bool Covered);
+        string Primary, string Secondary, string Tool, string Infection, string Cue, int Priority, bool Covered)
+    { public float? HealthFraction { get; init; } }
     public readonly record struct HudTeamPresentation(bool Active, bool Details, HudTeamRow First, HudTeamRow Second, HudTeamRow Third)
     {
         public HudTeamRow this[int index] => index switch { 0 => First, 1 => Second, 2 => Third, _ => default };
@@ -82,7 +83,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
                 bool covered = expanded && o.Details && name && life && lifeValue.Kind == HudLifeKind.Alive
                     && hp.HasValue && inf.HasValue && ammo1.HasValue && ammo2.HasValue && resource.HasValue;
                 return row with { Health = hp.HasValue ? health : "—", Status = hp.HasValue ? status : health,
-                    Primary = primary, Secondary = secondary, Tool = tool, Infection = infection, Cue = cue, Priority = priority, Covered = covered };
+                    Primary = primary, Secondary = secondary, Tool = tool, Infection = infection, Cue = cue, Priority = priority, Covered = covered, HealthFraction=hp.HasValue?(float)hp.Value:null };
             }
             int first = local == 0 ? 1 : 0, second = first + 1 == local ? first + 2 : first + 1, third = second + 1 == local ? second + 2 : second + 1;
             return new(true, expanded && o.Details, Row(first), Row(second), Row(third));
@@ -101,7 +102,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
         {
             if (!team.Active || !options.Layout.Team) return;
             var o = options.Sanitized(); float s = panel.Scale, w = panel.Bounds.Width / s;
-            float top = panel.Expanded ? HudPanelProjection.ExpandedHeight : HudPanelProjection.CompactHeight;
+            float top = o.Layout.TeamPage?0:panel.Expanded ? HudPanelProjection.ExpandedHeight : HudPanelProjection.CompactHeight;
             var text = o.Theme.Text.Brightness(o.Theme.Brightness).Opacity(o.Theme.TextOpacity);
             var dim = o.Theme.Base.Brightness(o.Theme.Brightness).Opacity(o.Theme.TextOpacity * .76f);
             void Text(float x, float y, float width, string value, string region, bool number = false, bool urgent = false)
@@ -114,6 +115,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
             for (int i = 0; i < 3; i++)
             {
                 var r = team[i]; float y = top + 26 + step*i; string region = "team-" + r.Slot;
+                if(o.Layout.TeamPage&&(r.Name=="空位"||r.Status=="未读取"&&r.Health=="—"))continue;
                 Text(14,y,22,(r.Slot+1).ToString(),region+"-slot",true);
                 Text(40,y,w-159,r.Name,region+"-name"); Text(w-116,y,40,r.Kind,region+"-kind"); Text(w-76,y,62,r.Health,region+"-health",true);
                 string status=string.IsNullOrEmpty(r.Cue)?r.Status:string.IsNullOrEmpty(r.Status)?r.Cue:r.Status+" · "+r.Cue;

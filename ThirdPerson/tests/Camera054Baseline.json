@@ -1,0 +1,137 @@
+{
+  "Source": "Executed original 0.5.4 production CameraStyleSolver before C1 edits; numerical baseline, no Unity",
+  "Samples": [
+    {
+      "Frame": 0,
+      "Pivot": [
+        0,
+        1.8000001,
+        0
+      ],
+      "Distance": 0.53,
+      "Shoulder": 0,
+      "VerticalFov": 65
+    },
+    {
+      "Frame": 1,
+      "Pivot": [
+        0,
+        1.8000001,
+        0
+      ],
+      "Distance": 0.7940514,
+      "Shoulder": 0.08700926,
+      "VerticalFov": 67.08938
+    },
+    {
+      "Frame": 30,
+      "Pivot": [
+        0,
+        1.8000001,
+        0
+      ],
+      "Distance": 2.238411,
+      "Shoulder": 0.47881016,
+      "VerticalFov": 79.83337
+    },
+    {
+      "Frame": 60,
+      "Pivot": [
+        0.9047352,
+        2,
+        0
+      ],
+      "Distance": 2.249922,
+      "Shoulder": 0.47999707,
+      "VerticalFov": 79.99815
+    },
+    {
+      "Frame": 61,
+      "Pivot": [
+        0.93806547,
+        2,
+        0
+      ],
+      "Distance": 2.249934,
+      "Shoulder": 0.4799976,
+      "VerticalFov": 79.99841
+    },
+    {
+      "Frame": 90,
+      "Pivot": [
+        1.9047234,
+        1.9963747,
+        0
+      ],
+      "Distance": 2.3037307,
+      "Shoulder": 0.46912378,
+      "VerticalFov": 80.55715
+    },
+    {
+      "Frame": 120,
+      "Pivot": [
+        1.9999882,
+        1.8640283,
+        0
+      ],
+      "Distance": 2.4982169,
+      "Shoulder": 0.42012176,
+      "VerticalFov": 83.126
+    },
+    {
+      "Frame": 121,
+      "Pivot": [
+        1.9999913,
+        1.7690381,
+        0
+      ],
+      "Distance": 2.4140556,
+      "Shoulder": 0.42009968,
+      "VerticalFov": 82.41199
+    },
+    {
+      "Frame": 150,
+      "Pivot": [
+        1.9999999,
+        1.3485497,
+        0
+      ],
+      "Distance": 1.861583,
+      "Shoulder": 0.43087646,
+      "VerticalFov": 76.94261
+    },
+    {
+      "Frame": 180,
+      "Pivot": [
+        1.9999999,
+        1.3726714,
+        0
+      ],
+      "Distance": 1.4455581,
+      "Shoulder": 0.31673586,
+      "VerticalFov": 71.19145
+    },
+    {
+      "Frame": 210,
+      "Pivot": [
+        2,
+        1.34,
+        0
+      ],
+      "Distance": 0.53,
+      "Shoulder": 0,
+      "VerticalFov": 65
+    },
+    {
+      "Frame": 239,
+      "Pivot": [
+        2,
+        1.34,
+        0
+      ],
+      "Distance": 1.938697,
+      "Shoulder": -0.4187284,
+      "VerticalFov": 77.832214
+    }
+  ]
+}

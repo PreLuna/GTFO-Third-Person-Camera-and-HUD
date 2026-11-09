@@ -1,9 +1,11 @@
 using System;
+using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using BepInEx;
 using BepInEx.Unity.IL2CPP;
 using Il2CppInterop.Runtime.Injection;
+using PreLuna.ThirdPersonHUD.Control;
 using PreLuna.ThirdPersonHUD.Core;
 using PreLuna.ThirdPersonHUD.Content;
 
@@ -13,9 +15,10 @@ namespace PreLuna.ThirdPersonHUD.Runtime
     [BepInDependency("PreLuna.ThirdPerson", BepInDependency.DependencyFlags.HardDependency)]
     public sealed class Plugin : BasePlugin
     {
-        public const string Id = "PreLuna.ThirdPersonHUD", Version = "0.11.0";
+        public const string Id = "PreLuna.ThirdPersonHUD", Version = "0.13.1";
         internal static Plugin Instance;
         internal HudSettings Settings;
+        internal HudControlState Control;
         internal HudRuntime Runtime;
         internal HudGameChangeHooks Changes;
         public override void Load()
@@ -28,13 +31,16 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 throw new InvalidOperationException("需要包含 HUD 桥接 v1 的第三人称模组候选。");
             if (Instance != null) throw new InvalidOperationException("第三人称 HUD 已加载，请只保留一个版本。");
             Instance = this;
-            try { StartRuntime(); Log.LogInfo("HUD 0.11.0 完整扩展候选已加载；仅有效本机第三人称显示，默认 LeftAlt 展开、Pause 恢复原版。"); }
+            try { StartRuntime(); Log.LogInfo($"HUD {Version} 已加载；仅有效本机第三人称显示，样式={Settings.ReadPanel().Layout.Style}，样式循环键={Settings.CycleStyleKey}，HUD键={Settings.ExpandKey}，{(Settings.ToggleHudVisibility?"完整HUD默认常驻，按一次隐藏/显示":Settings.ToggleExpand?"按一次切换详情":"按住展开详情")}，Pause 恢复原版。"); }
             catch { Unload(); throw; }
         }
         [MethodImpl(MethodImplOptions.NoInlining)]
         void StartRuntime()
         {
             Settings = new HudSettings(Config);
+            Config.SaveOnConfigSet = false;
+            if (!File.Exists(Config.ConfigFilePath)) Config.Save();
+            Control = Settings.CreateControl(Config.ConfigFilePath);
             ClassInjector.RegisterTypeInIl2Cpp<HudRuntime>();
             var content = new HudGameContentSource();
             Runtime = AddComponent<HudRuntime>(); Runtime.Initialize(contentSource:content,originalPort:new HudOriginalGamePort());
@@ -42,6 +48,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         }
         public override bool Unload()
         {
+            Control = null;
             var runtime = Runtime; Runtime = null;
             try { try { Changes?.Dispose(); } finally { Changes = null; if (runtime != null) runtime.Stop(); } }
             finally { if (runtime != null) UnityEngine.Object.Destroy(runtime); if (ReferenceEquals(Instance, this)) Instance = null; }

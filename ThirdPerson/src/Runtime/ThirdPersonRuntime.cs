@@ -21,6 +21,10 @@ namespace PreLuna.ThirdPerson.Runtime
         readonly SpatialCameraSolver collisionSolver=new();
         readonly EnvironmentRecovery environment=new();
         RigTarget rig;
+        MotionFrame lastMotion;
+        RigTarget lastMotionRig;
+        DisplayView lastMotionDisplay;
+        DisplayView lastClearanceProbe;
         bool nativeDisplay=true;
         readonly UnityCameraWorld world=new();
         readonly CameraRenderStack cameraStack=new();
@@ -35,7 +39,14 @@ namespace PreLuna.ThirdPerson.Runtime
         int adaptedShots;
         LocalPlayerAgent player;
         LocalBodyView body;
+        LocalBodyPoseScope bodyPose;
+        string lastBodyPoseStatus="not-rendered";
+        bool lastRightArmApplied,lastLeftArmApplied,lastRightArmClamped,lastLeftArmClamped;
+        bool? lastBodyPoseRestored;
+        float lastRightArmGripError,lastLeftArmGripError;
         readonly WorldWeaponView weapon=new();
+        readonly NativeBodyHolding nativeHolding=new();
+        object lastNativeHolding;
         RenderScope scope;
         FirstPersonLayerView firstPerson;
         bool insidePreCull,stopped;
@@ -49,6 +60,13 @@ namespace PreLuna.ThirdPerson.Runtime
         Vector3 expectedBody,expectedEye;
         int renders,restores,collisionFallbacks,levelCleanups;
         bool? lastRenderRestored;
+        object lastReleasedBody;
+        int lastBodyFrame=-1,lastBodyRenderers,lastWeaponParts,lastVisibleWeaponParts;
+        bool lastBodyCameraLinked;
+        int lastPinnedBodyTransforms;
+        Vector3 lastBodyPosition,lastDisplayBodyPosition,lastNeckPosition,lastDisplayNeckPosition;
+        BodyScaleSnapshot lastBodySizeBefore,lastBodySizeDuring;
+        float lastGripPositionError,lastGripRotationError;
         FallbackReason previousReason=FallbackReason.Disabled;
         public void Awake(){state.Request(Plugin.Instance.Settings.Enabled.Value);InitializeHudBridge();}
         public void Update()
@@ -59,7 +77,7 @@ namespace PreLuna.ThirdPerson.Runtime
                 if(scope!=null){EndRender();Fault("相机渲染未在当前帧结束，已恢复并停用");}
                 var local=Local();
                 if(context.Observe(local==null?default:new WorldContext(Id(local),Id(local.Owner),Id(LevelGeneration.Builder.CurrentFloor),(int)local.DimensionIndex,Id(local.PlayerSyncModel)),local==null?default:ConvertView.N(local.transform.position)))
-                {aim.Cancel();Release();}
+                {EndObservation(local,false,"context-change");ResetObservationFeedback();aim.Cancel();Release();}
                 if(player!=null&&(local==null||local.Pointer!=player.Pointer||Id(local.Owner)!=ownerId))Release();
                 var gate=Gate(local);
                 var settings=Plugin.Instance.Settings;
@@ -80,11 +98,53 @@ namespace PreLuna.ThirdPerson.Runtime
                 state.Request(Plugin.Instance.Settings.Enabled.Value);
                 state.Evaluate(gate);
                 aim.Poll(local,gate==FallbackReason.None&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);
+                MaintainObservation(local);
                 if(gate!=FallbackReason.None||!state.Requested||state.Faulted)Release();
+                else if(body!=null)TickNativeHolding(local,local.Inventory?.WieldedItem);
+                TickObservationFeedback(local);
+                TickCameraFeatureNotice(local);
                 TickPerformance(gate);
                 ReportReason();
                 RefreshHudBridge();
             });
+        }
+        public void LateUpdate()
+        {
+            if(stopped||Plugin.Instance==null)return;
+            Guard(()=>
+            {
+                var local=Local();
+                if(!state.Requested||state.Faulted||Gate(local)!=FallbackReason.None){Release();return;}
+                PollAim(local);
+                if(aim.Active&&aim.Gesture.Mode==ViewMode.FirstPersonAim||AttackFallback(local))
+                {EndBodyPresentation();return;}
+                var item=local.Inventory?.WieldedItem;
+                if(item==null||local.PlayerSyncModel?.ItemAlign==null||!Bind(local,item))
+                {EndBodyPresentation();return;}
+                if(Plugin.Instance.Settings.NativeSyncedHolding.Value&&item.IsReloading)
+                {EndBodyPresentation();return;}
+                TickNativeHolding(local,item);
+                if(nativeHolding.Active&&nativeHolding.BoundFrame==Time.frameCount)body.Warmup();
+                body.Prepare(Plugin.Instance.Settings.NormalizeBodyScale.Value);
+                if(body.ReadyForMain&&nativeHolding.Active)
+                    nativeHolding.Solve(weapon,local.FPSCamera.Position+local.FPSCamera.Forward*100);
+            });
+        }
+        [HideFromIl2Cpp] void TickNativeHolding(LocalPlayerAgent local,ItemEquippable item)
+        {
+            if(Plugin.Instance.Settings.NativeSyncedHolding.Value&&aim.Active&&aim.Gesture.Mode!=ViewMode.FirstPersonAim)
+                nativeHolding.Tick(local,item);
+            else nativeHolding.Release();
+        }
+        [HideFromIl2Cpp] void EndBodyPresentation()
+        {using var cleanup=new RestoreJournal();cleanup.Add(()=>body?.EndPresentation());cleanup.Add(nativeHolding.Release);}
+        [HideFromIl2Cpp] bool AttackFallback(LocalPlayerAgent local)
+        {
+            bool attack=local.FPItemHolder?.ItemMeleeTrigger==true||!aim.Active&&(Input.GetMouseButton(0)||Input.GetMouseButton(1)
+                ||InputMapper.GetButton.Invoke(InputAction.Fire,local.InputFilter)||InputMapper.GetButton.Invoke(InputAction.Aim,local.InputFilter)
+                ||local.FPItemHolder?.ItemAimTrigger==true||local.FPItemHolder?.ItemIsBusy==true);
+            if(attack)attackUntil=Time.unscaledTime+.25f;
+            return Time.unscaledTime<attackUntil;
         }
         [HideFromIl2Cpp] static long Id(object obj)=>obj is Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase value?value.Pointer.ToInt64():0;
         [HideFromIl2Cpp] static LocalPlayerAgent Local()=>GameStateManager.CurrentStateName==eGameStateName.InLevel?PlayerManager.GetLocalPlayerAgent()?.TryCast<LocalPlayerAgent>():null;
@@ -129,64 +189,85 @@ namespace PreLuna.ThirdPerson.Runtime
             if(item==null||local.PlayerSyncModel?.ItemAlign==null){state.Evaluate(FallbackReason.MissingModel);Release();return;}
             PollAim(local);
             if(aim.Active&&aim.Gesture.Mode==ViewMode.FirstPersonAim){NativeDisplay("first-person-ads");return;}
+            if(Plugin.Instance.Settings.NativeSyncedHolding.Value&&aim.Active&&item.IsReloading){NativeDisplay("native-reload");return;}
             // Non-firearm right buttons keep their native scan/charge/deploy/throw meaning.
-            bool attack=local.FPItemHolder?.ItemMeleeTrigger==true||!aim.Active&&(Input.GetMouseButton(0)||Input.GetMouseButton(1)
-                ||InputMapper.GetButton.Invoke(InputAction.Fire,local.InputFilter)||InputMapper.GetButton.Invoke(InputAction.Aim,local.InputFilter)
-                ||local.FPItemHolder?.ItemAimTrigger==true||local.FPItemHolder?.ItemIsBusy==true);
-            if(attack)attackUntil=Time.unscaledTime+.25f;
-            if(Time.unscaledTime<attackUntil){state.Evaluate(FallbackReason.Attack);Release();return;}
-            Bind(local,item);
+            if(AttackFallback(local)){state.Evaluate(FallbackReason.Attack);Release();return;}
+            if(!Bind(local,item)){EndObservation(local,false,"missing-model");EndBodyPresentation();HideItemCamera(false);state.Evaluate(FallbackReason.MissingModel);hudProvider?.AbortMain();return;}
+            // New/late skins need a native update before their first display.
+            // Never activate or enable them here, after LateUpdate/skinning.
+            if(!body.ReadyForMain){EndObservation(local,false,"body-warmup");HideItemCamera(false);detail="body-skinning-warmup";hudProvider?.AbortMain();return;}
             var fps=local.FPSCamera;var camera=fps.m_camera;
             if(camera==null||!camera.enabled||fps.m_cullingCamera.m_cullAgent?.CurrentNode==null){state.Evaluate(FallbackReason.NoPlayer);Release();return;}
             var settings=Plugin.Instance.Settings.Camera;
             ComputeView(local);
             if(!display.IsThirdPerson)
-            {collisionFallbacks++;state.Evaluate(FallbackReason.Collision);detail=display.Reason;HideItemCamera(false);hudProvider?.AbortMain();return;}
+            {EndObservation(local,false,"collision");collisionFallbacks++;state.Evaluate(FallbackReason.Collision);detail=display.Reason;EndBodyPresentation();HideItemCamera(false);hudProvider?.AbortMain();return;}
             expectedBody=local.transform.position;expectedEye=fps.Position;
             scopeFrame=Time.frameCount;
             lastRenderRestored=false;
             UpdateAimSolution(local);
-            if(aim.Active&&!shotAim.Valid){HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=shotAim.Reason};detail=shotAim.Reason;hudProvider?.AbortMain();return;}
+            if(aim.Active&&!shotAim.Valid){EndObservation(local,false,"invalid-aim");EndBodyPresentation();HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=shotAim.Reason};detail=shotAim.Reason;hudProvider?.AbortMain();return;}
+            var nativeGrips=Plugin.Instance.Settings.NativeGripPose.Value&&aim.Active&&!nativeHolding.Active?NativeGripSample.Capture(item):default;
             scope=new RenderScope(local,display,settings,rig.VerticalFov);
+            bodyPose=nativeGrips.Valid?new LocalBodyPoseScope(local,nativeGrips):null;
+            lastBodyPoseStatus=bodyPose?.Status??(Plugin.Instance.Settings.NativeGripPose.Value?"no-native-grip":"disabled");
+            lastBodyPoseRestored=bodyPose==null?null:false;
+            lastRightArmApplied=bodyPose?.RightApplied??false;lastLeftArmApplied=bodyPose?.LeftApplied??false;
+            lastRightArmClamped=bodyPose?.RightClamped??false;lastLeftArmClamped=bodyPose?.LeftClamped??false;
+            lastRightArmGripError=bodyPose?.RightGripError??0;lastLeftArmGripError=bodyPose?.LeftGripError??0;
+            lastBodyCameraLinked=scope.BodyCameraLinked;lastPinnedBodyTransforms=scope.PinnedBodyTransforms;lastBodyPosition=scope.BodyPosition;lastDisplayBodyPosition=scope.DisplayBodyPosition;
+            lastNeckPosition=scope.NeckPosition;lastDisplayNeckPosition=scope.DisplayNeckPosition;
+            lastBodySizeBefore=scope.BodySizeBefore;lastBodySizeDuring=scope.BodySizeDuring;
             cameraStack.Open(camera.Pointer.ToInt64(),scopeFrame);
             audioHandling=scope.AudioHandling;
             HideItemCamera(true);ShowMainGraphics();renders++;performance.Render(false);detail="rendering";
+            lastLookRenderFrame=Time.frameCount;
             PublishHudFrame(local);
         }
-        [HideFromIl2Cpp] void Bind(LocalPlayerAgent local,ItemEquippable item)
+        [HideFromIl2Cpp] bool Bind(LocalPlayerAgent local,ItemEquippable item)
         {
             if(player==null||player.Pointer!=local.Pointer||ownerId!=Id(local.Owner)||modelId!=Id(local.PlayerSyncModel))
             {
-                Release();player=local;ownerId=Id(local.Owner);modelId=Id(local.PlayerSyncModel);state.Bind();
+                Release();player=local;ownerId=Id(local.Owner);modelId=Id(local.PlayerSyncModel);state.Bind();lastReleasedBody=null;lastBodyFrame=-1;lastNativeHolding=null;
                 body=new LocalBodyView(local);world.Bind(local.gameObject);firstPerson=new FirstPersonLayerView(local);
                 cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;
             }
-            weapon.Bind(item);firstPerson.Bind(item);
+            body.Refresh();long previousItem=weapon.ItemIdentity;bool ready=weapon.Bind(item);firstPerson.Bind(item,body);
+            // A swap after LateUpdate must not draw new equipment with an old
+            // holding pose. Prepare and warm up the new binding first.
+            if(previousItem!=weapon.ItemIdentity&&Plugin.Instance.Settings.NativeSyncedHolding.Value)body.Warmup();
+            return ready&&body.RendererCount>0;
         }
         [HideFromIl2Cpp] void HideItemCamera(bool hide)
         {
             firstPerson?.SetCamerasHidden(hide);
         }
         [HideFromIl2Cpp] void ShowMainGraphics()
-        {firstPerson.RestoreGraphics();weapon.Show(player,true);body.Show(true,ConvertView.U(display.Position),Plugin.Instance.Settings.BodyFade.Value,Plugin.Instance.Settings.FadeNear,Plugin.Instance.Settings.FadeFar);firstPerson.HideGraphics();}
+        {
+            firstPerson.RestoreGraphics();weapon.Show(player,true);body.Show(true,ConvertView.U(display.Position),Plugin.Instance.Settings.BodyFade.Value,Plugin.Instance.Settings.FadeNear,Plugin.Instance.Settings.FadeFar);firstPerson.HideGraphics();
+            lastBodyFrame=Time.frameCount;lastBodyRenderers=body.RendererCount;lastWeaponParts=weapon.PartCount;lastVisibleWeaponParts=weapon.LastVisibleParts;
+            lastGripPositionError=weapon.GripPositionError;lastGripRotationError=weapon.GripRotationError;
+            lastNativeHolding=nativeHolding.Diagnostics();
+            lastMotion=cameraStyle.Motion;lastMotionRig=rig;lastMotionDisplay=display;
+        }
         [HideFromIl2Cpp] internal void OtherCameraBegin(Camera camera)
         {
             if(performance.Active&&camera!=null&&camera.Pointer!=Local()?.FPSCamera?.m_camera?.Pointer)performance.Render(true);
             if(camera!=null)hudProvider?.AuxiliaryBegin(ObjectKey(camera));
             if(scope==null||camera==null||camera.Pointer==player?.FPSCamera?.m_camera?.Pointer)return;
-            if(cameraStack.BeginAuxiliary(camera.Pointer.ToInt64())){scope.Suspend();firstPerson.RestoreGraphics();body.Show(false);weapon.Show(player,false);}
+            if(cameraStack.BeginAuxiliary(camera.Pointer.ToInt64())){bodyPose?.Suspend();scope.Suspend();firstPerson.RestoreGraphics();body.Show(false);weapon.Show(player,false);}
         }
         [HideFromIl2Cpp] internal void CameraPreRender(Camera camera)
         {
             if(scope!=null&&camera?.Pointer==player?.FPSCamera?.m_camera?.Pointer)
-            {cameraStack.ValidateMain();scope.Resume();ShowMainGraphics();}
+            {cameraStack.ValidateMain();scope.Resume();bodyPose?.Resume();ShowMainGraphics();}
         }
         [HideFromIl2Cpp] internal void CameraFinished(Camera camera)
         {
             if(camera==null)return;
             if(camera.Pointer==Local()?.FPSCamera?.m_camera?.Pointer)
             {if(scope!=null){cameraStack.ValidateMain();RestoreRender();}return;}
-            if(scope!=null&&cameraStack.EndAuxiliary(camera.Pointer.ToInt64())){scope.Resume();ShowMainGraphics();}
+            if(scope!=null&&cameraStack.EndAuxiliary(camera.Pointer.ToInt64())){scope.Resume();bodyPose?.Resume();ShowMainGraphics();}
             hudProvider?.AuxiliaryEnd(ObjectKey(camera));
         }
         [HideFromIl2Cpp] internal void EndFor(FPSCamera fps,bool succeeded)
@@ -200,39 +281,61 @@ namespace PreLuna.ThirdPerson.Runtime
         [HideFromIl2Cpp] internal void BeforeFire(Gear.BulletWeapon item)
         {if(scope!=null&&item?.Owner?.Pointer==player?.Pointer){EndRender();Fault("开火前检测到显示区间，已交还原版");}}
         [HideFromIl2Cpp] void PollAim(LocalPlayerAgent local)
-        {aim.Poll(local,Gate(local)==FallbackReason.None&&Plugin.Instance.Settings.Enabled.Value&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);}
+        {aim.Poll(local,Gate(local)==FallbackReason.None&&Plugin.Instance.Settings.Enabled.Value&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);MaintainObservation(local);}
         [HideFromIl2Cpp] internal bool AimInput(FirstPersonItemHolder holder)
         {var local=Local();PollAim(local);return aim.Apply(holder);}
         [HideFromIl2Cpp] internal bool AimButton(ItemEquippable item,bool pressed,out bool value)
         {PollAim(Local());return aim.GetAim(item,pressed,out value);}
         [HideFromIl2Cpp] void NativeDisplay(string why)
         {
+            EndObservation(Local(),false,why);
             if(!nativeDisplay){cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;solverFrame=-1;}
-            HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=why};detail=why;
+            EndBodyPresentation();HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=why};detail=why;
             hudProvider?.AbortMain();RefreshHudBridge();
         }
-        [HideFromIl2Cpp] void ComputeView(LocalPlayerAgent local)
+        [HideFromIl2Cpp] void ComputeView(LocalPlayerAgent local,bool advance=true)
         {
             using var measured=performance.Measure();
             var fps=local.FPSCamera;var camera=fps.m_camera;var config=Plugin.Instance.Settings;var settings=config.Camera;
-            logical=new(Time.frameCount,Time.fixedTime,state.Generation,ConvertView.N(local.transform.position),ConvertView.N(fps.Position),ConvertView.N(fps.Forward));
-            float dt=solverFrame==Time.frameCount?0:Time.unscaledDeltaTime;solverFrame=Time.frameCount;
+            lastViewAspect=camera.aspect;
+            var forward=lookInput.Orientation.Active&&ObservationOwner(local)?lookInput.Orientation.Forward(fps.m_yaw,fps.m_pitch):ConvertView.N(fps.Forward);
+            logical=new(Time.frameCount,Time.fixedTime,state.Generation,ConvertView.N(local.transform.position),ConvertView.N(fps.Position),forward);
+            float dt=!advance||solverFrame==Time.frameCount?0:Time.unscaledDeltaTime;if(advance)solverFrame=Time.frameCount;
             if(nativeDisplay){cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();nativeDisplay=false;}
             var activity=aim.Active&&aim.Gesture.WantsAim?CameraActivity.ShoulderAim:local.Locomotion.m_currentStateEnum switch
             {PlayerLocomotion.PLOC_State.Run=>CameraActivity.Running,PlayerLocomotion.PLOC_State.Crouch=>CameraActivity.Crouching,_=>CameraActivity.Exploration};
-            rig=cameraStyle.Step(logical,dt,activity,config.Preset.Value,config.LeftShoulder.Value,config.Style,camera.fieldOfView);
             world.Mask=Plugin.Instance.Settings.CollisionMask.Value;
             if(world.Mask==0)world.Mask=LayerManager.MASK_WORLD|LayerManager.MASK_PLAYER_INTERACT_BLOCKERS|(1<<LayerManager.LAYER_DYNAMIC);
-            display=collisionSolver.Solve(Time.frameCount,rig,dt,Time.unscaledTime,camera.aspect,settings,config.Spatial,world);
+            bool refined=config.Refinement.Enabled;
+            if(refined&&environment.Blocked)
+            {
+                if(!advance){display=new(Time.frameCount,logical.Eye,logical.Forward,settings.Radius,false,"environment-stabilizing");return;}
+                // Probe fresh clearance without advancing hidden follow/zoom/feedback histories.
+                rig=cameraStyle.Step(logical,0,activity,config.Preset.Value,config.LeftShoulder.Value,config.Style,camera.fieldOfView,config.Motion,config.Transition,config.ActionFeedback);
+                var target=cameraStyle.TargetProfile;
+                var probeRig=new RigTarget(logical.Eye+System.Numerics.Vector3.UnitY*target.Height,logical.Forward,target.Distance,target.Shoulder,target.VerticalFov,activity,0){LogicalEye=logical.Eye};
+                lastClearanceProbe=collisionSolver.Preview(Time.frameCount,probeRig,Time.unscaledTime,camera.aspect,settings,config.Spatial,world,config.Refinement,true);
+                if(!environment.Evaluate(lastClearanceProbe.IsThirdPerson,lastClearanceProbe.IsThirdPerson?lastClearanceProbe.ClearanceDistance??(lastClearanceProbe.Position-probeRig.Pivot).Length():0,settings.MinimumDistance,Time.unscaledTime,config.Spatial))
+                {display=lastClearanceProbe with{IsThirdPerson=false,Reason=lastClearanceProbe.IsThirdPerson?"environment-stabilizing":lastClearanceProbe.Reason};return;}
+                cameraStyle.Reset(true,settings.MinimumDistance+.15f);collisionSolver.Reset();dt=0;
+            }
+            rig=cameraStyle.Step(logical,dt,activity,config.Preset.Value,config.LeftShoulder.Value,config.Style,camera.fieldOfView,config.Motion,config.Transition,config.ActionFeedback);
+            display=advance?collisionSolver.Solve(Time.frameCount,rig,dt,Time.unscaledTime,camera.aspect,settings,config.Spatial,world,config.Refinement):
+                collisionSolver.Preview(Time.frameCount,rig,Time.unscaledTime,camera.aspect,settings,config.Spatial,world,config.Refinement);
             bool recovering=environment.Blocked;
-            bool safe=environment.Evaluate(display.IsThirdPerson,display.IsThirdPerson?(display.Position-rig.Pivot).Length():0,settings.MinimumDistance,Time.unscaledTime,config.Spatial);
-            if(!safe){display=display with{IsThirdPerson=false,Reason=display.IsThirdPerson?"environment-stabilizing":display.Reason};return;}
-            if(recovering)
+            bool safe=environment.Evaluate(display.IsThirdPerson,display.IsThirdPerson?display.ClearanceDistance??(display.Position-rig.Pivot).Length():0,settings.MinimumDistance,Time.unscaledTime,config.Spatial,advance);
+            if(!safe)
+            {
+                display=display with{IsThirdPerson=false,Reason=display.IsThirdPerson?"environment-stabilizing":display.Reason};
+                if(refined&&advance){cameraStyle.Reset(true,settings.MinimumDistance+.15f);collisionSolver.Reset();nativeDisplay=true;solverFrame=-1;}
+                return;
+            }
+            if(recovering&&advance)
             {
                 // Resume using current input intent and start near the original eye; never replay an old aim mode.
                 cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();
-                rig=cameraStyle.Step(logical,0,activity,config.Preset.Value,config.LeftShoulder.Value,config.Style,camera.fieldOfView);
-                display=collisionSolver.Solve(Time.frameCount,rig,0,Time.unscaledTime,camera.aspect,settings,config.Spatial,world);
+                rig=cameraStyle.Step(logical,0,activity,config.Preset.Value,config.LeftShoulder.Value,config.Style,camera.fieldOfView,config.Motion,config.Transition,config.ActionFeedback);
+                display=collisionSolver.Solve(Time.frameCount,rig,0,Time.unscaledTime,camera.aspect,settings,config.Spatial,world,config.Refinement);
                 if(!display.IsThirdPerson)environment.Evaluate(false,0,settings.MinimumDistance,Time.unscaledTime,config.Spatial);
             }
         }
@@ -251,9 +354,11 @@ namespace PreLuna.ThirdPerson.Runtime
             var local=Local();
             if(local==null||item?.Owner?.Pointer!=local.Pointer||local.Inventory?.WieldedItem?.Pointer!=item.Pointer)return null;
             PollAim(local);
+            // A Fire can precede this component's Update. Transfer before any native or adapted ray.
+            if(lookInput.Orientation.Active)EndObservation(local,Gate(local)==FallbackReason.None&&OwnObservationView(),"fire");
             if(!aim.Active||state.Faulted)return null;
             if(aim.Gesture.Mode==ViewMode.FirstPersonAim){NativeDisplay("first-person-ads");return null;}
-            Bind(local,item);aim.Apply(local.FPItemHolder);ComputeView(local);
+            if(!Bind(local,item))return null;aim.Apply(local.FPItemHolder);ComputeView(local,false);
             if(!display.IsThirdPerson)return null;
             UpdateAimSolution(local);
             if(!shotAim.Valid)return null;
@@ -293,29 +398,32 @@ namespace PreLuna.ThirdPerson.Runtime
         [HideFromIl2Cpp] void RestoreRender()
         {
             using var measured=performance.Measure(true);
-            var active=scope;scope=null;insidePreCull=false;cameraStack.Clear();
+            var active=scope;var activePose=bodyPose;scope=null;bodyPose=null;insidePreCull=false;cameraStack.Clear();
             var recovery=new RestoreJournal();
             recovery.Add(()=>{if(active!=null)active.Dispose();});
+            recovery.Add(()=>{if(activePose!=null){activePose.Dispose();lastBodyPoseRestored=activePose.WasRestored;}});
             recovery.Add(()=>weapon.Show(player,false));recovery.Add(()=>body?.Show(false));recovery.Add(()=>firstPerson?.RestoreGraphics());
             try{recovery.Dispose();}
             catch{hudProvider?.MainRestored(false);throw;}
             if(active!=null)
             {
-                lastRenderRestored=active.WasRestored;
+                lastRenderRestored=active.WasRestored&&(activePose==null||activePose.WasRestored);
                 restores++;
                 if(player!=null&&((player.transform.position-expectedBody).sqrMagnitude>.000001f||(player.FPSCamera.Position-expectedEye).sqrMagnitude>.000001f))
                     Fault("恢复检查发现人物位置或逻辑支点变化");
                 detail="restored";
-                hudProvider?.MainRestored(active.WasRestored&&!state.Faulted);
+                hudProvider?.MainRestored(lastRenderRestored==true&&!state.Faulted);
             }
         }
         [HideFromIl2Cpp] internal void Release()
         {
+            ReleaseObservation();
             hudProvider?.AbortMain();
-            if(scope==null&&player==null&&body==null&&firstPerson==null&&weapon.ItemIdentity==0){insidePreCull=false;return;}
+            if(scope==null&&bodyPose==null&&player==null&&body==null&&firstPerson==null&&weapon.ItemIdentity==0){insidePreCull=false;return;}
+            if(body!=null)lastReleasedBody=body.Diagnostics();
             var cleanup=new RestoreJournal();
             cleanup.Add(()=>{player=null;ownerId=0;modelId=0;firstPerson=null;body=null;cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;solverFrame=-1;});
-            cleanup.Add(()=>body?.Dispose());cleanup.Add(()=>weapon.Dispose());cleanup.Add(()=>firstPerson?.Dispose());cleanup.Add(EndRender);
+            cleanup.Add(()=>body?.Dispose());cleanup.Add(()=>weapon.Dispose());cleanup.Add(()=>firstPerson?.Dispose());cleanup.Add(nativeHolding.Release);cleanup.Add(EndRender);
             cleanup.Dispose();
         }
         [HideFromIl2Cpp] internal void LevelCleanup()
@@ -324,11 +432,13 @@ namespace PreLuna.ThirdPerson.Runtime
             Exception failure=null;
             try{using var cleanup=new RestoreJournal();cleanup.Add(Release);cleanup.Add(aim.Cancel);}
             catch(Exception error){state.Fail();detail="level-cleanup-failed";failure=error;}
-            finally{context.Reset();levelCleanups++;EndPerformance("level-cleanup");TrySnapshot("level-cleanup");Plugin.Instance?.Log.LogInfo("关卡清理结束："+levelCleanups+"；渲染/恢复="+renders+"/"+restores+"；成功="+(failure==null));}
+            finally{context.Reset();ResetObservationFeedback();levelCleanups++;EndPerformance("level-cleanup");TrySnapshot("level-cleanup");Plugin.Instance?.Log.LogInfo("关卡清理结束："+levelCleanups+"；渲染/恢复="+renders+"/"+restores+"；成功="+(failure==null));}
             if(failure!=null)throw failure;
         }
         [HideFromIl2Cpp] internal void Guard(Action action)
-        {try{action();}catch(Exception error){try{Release();}catch(Exception restore){Plugin.Instance?.Log.LogError("恢复失败："+restore);}Fault(error.GetBaseException().Message);}}
+        {try{action();}catch(Exception error){Recover(error);}}
+        [HideFromIl2Cpp] internal void Recover(Exception error)
+        {try{Release();}catch(Exception restore){Plugin.Instance?.Log.LogError("恢复失败："+restore);}Fault(error.GetBaseException().Message);}
         [HideFromIl2Cpp] void Fault(string why)
         {try{aim.Cancel();}finally{state.Fail();detail=why;RefreshHudBridge();Plugin.Instance?.Log.LogError("第三人称已停用："+why);}}
         [HideFromIl2Cpp] void ReportReason()
@@ -336,16 +446,39 @@ namespace PreLuna.ThirdPerson.Runtime
         [HideFromIl2Cpp] internal void Snapshot(string captureReason="manual")
         {
             string root=Path.Combine(Paths.BepInExRootPath,"ThirdPerson-P5-诊断");Directory.CreateDirectory(root);
-            var data=new{schemaVersion=3,utc=DateTime.UtcNow.ToString("o"),pluginVersion=Plugin.Version,gameRevision=Plugin.GameRevision,sessionId,processId=Environment.ProcessId,captureReason,
+            var motion=cameraStyle.Motion;
+            var data=new{schemaVersion=5,utc=DateTime.UtcNow.ToString("o"),pluginVersion=Plugin.Version,gameRevision=Plugin.GameRevision,sessionId,processId=Environment.ProcessId,captureReason,
                 frame=Time.frameCount,fixedTime=Time.fixedTime,requested=state.Requested,faulted=state.Faulted,reason=state.Reason.ToString(),detail,
-                gameState=GameStateManager.CurrentStateName.ToString(),levelCleanups,generation=state.Generation,player=Id(player),owner=ownerId,item=weapon.ItemIdentity,bodyRenderers=body?.RendererCount??0,weaponParts=weapon.PartCount,bodyMode="original-local-model",gripPoseAdapted=false,
+                gameState=GameStateManager.CurrentStateName.ToString(),levelCleanups,generation=state.Generation,player=Id(player),owner=ownerId,item=weapon.ItemIdentity,bodyRenderers=body?.RendererCount??0,weaponParts=weapon.PartCount,bodyMode="world-pinned-local-model",gripPoseAdapted=true,
+                lastModelRender=new{frame=lastBodyFrame,bodyRenderers=lastBodyRenderers,weaponParts=lastWeaponParts,visibleWeaponParts=lastVisibleWeaponParts,cameraLinked=lastBodyCameraLinked,pinnedTransforms=lastPinnedBodyTransforms,
+                    nativeBodyHolding=lastNativeHolding,
+                    nativeGripPose=new{status=lastBodyPoseStatus,rightArm=lastRightArmApplied,leftArm=lastLeftArmApplied,rightClamped=lastRightArmClamped,leftClamped=lastLeftArmClamped,rightGripError=lastRightArmGripError,leftGripError=lastLeftArmGripError,restored=lastBodyPoseRestored},
+                    bodyBefore=lastBodyPosition.ToString(),bodyDuring=lastDisplayBodyPosition.ToString(),neckBefore=lastNeckPosition.ToString(),neckDuring=lastDisplayNeckPosition.ToString(),
+                    scaleBefore=lastBodyFrame<0?(BodyScaleSnapshot?)null:lastBodySizeBefore,scaleDuring=lastBodyFrame<0?(BodyScaleSnapshot?)null:lastBodySizeDuring,
+                    gripPositionError=lastGripPositionError,gripRotationError=lastGripRotationError,body=body?.Diagnostics()??lastReleasedBody},
                 scopeActive=scope!=null,scopeSuspended=scope?.Suspended??false,scopeFrame,lastRenderRestored,auxiliaryCameras=cameraStack.AuxiliaryCount,itemCameraHidden=firstPerson?.CamerasHidden??false,firstPerson=firstPerson?.Diagnostics(),renders,restores,collisionFallbacks,audioHandling,collisionBufferSaturated=world.BufferSaturated,
                 hudBridge=HudBridgeDiagnostics(),
                 logical=new{logical.Frame,logical.FixedTime,body=logical.Body.ToString(),eye=logical.Eye.ToString(),forward=logical.Forward.ToString()},
-                display=new{display.Frame,position=display.Position.ToString(),display.Radius,display.IsThirdPerson,display.Reason},
+                display=new{display.Frame,position=display.Position.ToString(),display.Radius,display.IsThirdPerson,display.Reason,display.ClearanceDistance,constrainedPivot=display.ConstrainedPivot?.ToString()},
                 aim=new{active=aim.Active,mode=aim.Gesture.Mode.ToString(),pendingExit=aim.Gesture.PendingExit,equipment=aim.Equipment,adaptedShots,valid=shotAim.Valid,blocked=shotAim.Blocked,reason=shotAim.Reason,origin=shotAim.Origin.ToString(),target=shotAim.Target.ToString()},
                 style=new{preset=Plugin.Instance.Settings.Preset.Value.ToString(),leftShoulder=Plugin.Instance.Settings.LeftShoulder.Value,activity=rig.Activity.ToString(),rig.Distance,rig.Shoulder,rig.VerticalFov,rig.Feedback,compressedShoulder=collisionSolver.CompressedShoulder,environmentBlocked=environment.Blocked,nativeDisplay,bodyFade=body?.FadeDiagnostics},
-                parameters=new{style=Plugin.Instance.Settings.Style,spatial=Plugin.Instance.Settings.Spatial,camera=Plugin.Instance.Settings.Camera},
+                cameraStages=CameraStagesDiagnostics(),
+                bodySizeComparison=BodySizeDiagnostics(),
+                motion=new{enabled=Plugin.Instance.Settings.Motion.Enabled,motion.Frame,motion.Generation,motion.Valid,anchor=motion.Anchor.ToString(),motion.EyeHeight,lead=motion.Lead.ToString(),velocity=motion.Velocity.ToString(),resetReason=motion.ResetReason.ToString(),
+                    lastMain=new{frame=lastBodyFrame,frameAge=lastBodyFrame<0?(int?)null:Time.frameCount-lastBodyFrame,lastMotion.Valid,anchor=lastMotion.Anchor.ToString(),lead=lastMotion.Lead.ToString(),velocity=lastMotion.Velocity.ToString(),lastMotion.EyeHeight,
+                        requestedPivot=lastMotionRig.Pivot.ToString(),requestedDistance=lastMotionRig.Distance,requestedFov=lastMotionRig.VerticalFov,actualPosition=lastMotionDisplay.Position.ToString(),lastMotionDisplay.Reason}},
+                observation=new{stage="C2a",enabled=Plugin.Instance.Settings.IndependentLook.Value,key=Plugin.Instance.Settings.Observe.Value.ToString(),maximumYaw=Plugin.Instance.Settings.ObserveYaw.Value,
+                    lookInput.Orientation.Active,lookInput.Orientation.BlockedUntilRelease,lookInput.Orientation.YawOffset,lookInput.Orientation.PitchOffset,lookInput.Orientation.Samples,
+                    lastLookRenderFrame,frameAge=lastLookRenderFrame<0?(int?)null:Time.frameCount-lastLookRenderFrame,lookHandoffs,lookDiscards,lookExit,
+                    lookHookCalls,localLookHookCalls,lastLocalLookHookFrame,lookEntries,lastLookRejectFrame,lastRejection=lastLookRejection.ToString(),
+                    rawKeyHeld=feedbackRawHeld,observationKeyPresses,blockReason=feedbackBlock.ToString(),observationNotices,lastObservationNotice,lastObservationNoticeFrame,feedbackChatWarned,
+                    movement=new{observationMovement.Frame,observationMovement.Valid,observationMovement.AxisX,observationMovement.AxisY,
+                        velocity=observationMovement.Velocity.ToString(),verticalSpeed=observationMovement.Velocity.Y,observationMovement.HorizontalSpeed,
+                        cause=observationMovement.Block.ToString(),inputThreshold=ObservationMovement.InputThreshold,stationarySpeed=ObservationMovement.StationarySpeed,
+                        lastRejected=new{lastRejectedMovement.Frame,lastRejectedMovement.Valid,lastRejectedMovement.AxisX,lastRejectedMovement.AxisY,
+                            velocity=lastRejectedMovement.Velocity.ToString(),verticalSpeed=lastRejectedMovement.Velocity.Y,lastRejectedMovement.HorizontalSpeed,cause=lastRejectedMovement.Block.ToString()}}},
+                parameters=new{style=Plugin.Instance.Settings.Style,spatial=Plugin.Instance.Settings.Spatial,camera=Plugin.Instance.Settings.Camera,motion=Plugin.Instance.Settings.Motion,
+                    transition=Plugin.Instance.Settings.Transition,refinement=Plugin.Instance.Settings.Refinement,actionFeedback=Plugin.Instance.Settings.ActionFeedback},
                 candidateSHA256=Plugin.Instance.BinaryHash,resources=ResourceLedger.Snapshot(),physicsQueries=TotalQueries(),controlBridge=Plugin.Instance.Control?.Status,
                 installedPlugins=Plugin.Instance.Inventory.Plugins,configurationCorrections=Plugin.Instance.Settings.Corrections,
                 performance=new{performance.Active,performance.Count,performance.Capacity},
@@ -369,7 +502,7 @@ namespace PreLuna.ThirdPerson.Runtime
                 performance.Start(config.PerformanceFrames.Value);performanceRequested=true;
                 Plugin.Instance.Log.LogInfo("性能采样开始，最多 "+config.PerformanceFrames.Value+" 帧；采样结束后写盘。");
                 string condition=config.PerformanceCondition.Value?.Trim()??"";
-                string configJson=JsonSerializer.Serialize(new{config.Style,config.Spatial,config.Camera,preset=config.Preset.Value.ToString(),left=config.LeftShoulder.Value,fade=config.BodyFade.Value,config.FadeNear,config.FadeFar,mask=config.CollisionMask.Value,doubleClickWindow=config.DoubleClickWindow.Value});
+                string configJson=JsonSerializer.Serialize(new{config.Style,config.Spatial,config.Camera,config.Motion,config.Transition,config.Refinement,config.ActionFeedback,observation=new{enabled=config.IndependentLook.Value,key=config.Observe.Value.ToString(),maximumYaw=config.ObserveYaw.Value},preset=config.Preset.Value.ToString(),left=config.LeftShoulder.Value,fade=config.BodyFade.Value,config.FadeNear,config.FadeFar,mask=config.CollisionMask.Value,doubleClickWindow=config.DoubleClickWindow.Value});
                 performanceMetadata=new{version=Plugin.Version,candidateSHA256=Plugin.Instance.BinaryHash,revision=Plugin.GameRevision,condition,
                     conditionsConfirmed=condition.Length>=8&&condition!="未标定",resolution=Screen.width+"x"+Screen.height,quality=QualitySettings.GetQualityLevel(),floor=Id(LevelGeneration.Builder.CurrentFloor),
                     configurationSHA256=Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(configJson))),startedAtUtc=DateTime.UtcNow.ToString("o")};

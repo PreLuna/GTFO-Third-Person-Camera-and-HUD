@@ -57,6 +57,8 @@ static class GameCollectionTests
     static int Main(string[] args)
     {
         Case("actual-health-and-infection", f => { var s = f.Capture(); Near(f.Read(s, s.Personal.Health, f.Key(f.Local), HudInformationId.Health), .5); Near(f.Read(s, s.Personal.Infection, f.Key(f.Local), HudInformationId.Infection), .1); });
+        Case("advancing-realistic-clock-does-not-reject-every-capture",f=>{var source=new HudGameContentSource(()=>{f.Now+=.000001;return f.Now;},()=>f.Current with{NowSeconds=f.Now});Check(source.TryCapture(f.Request,out var s),source.LastCaptureFailure);Check(s.Personal.Health.State==HudValueState.Available&&s.Personal.Primary.Magazine.State==HudValueState.Available);});
+        Case("genuinely-future-input-is-still-rejected",f=>{var source=new HudGameContentSource(()=>{f.Now+=.000001;return f.Now;},()=>f.Current with{NowSeconds=f.Now});var r=f.Request;r=r with{Origin=r.Origin with{CapturedAtSeconds=f.Now+1}};Check(!source.TryCapture(r,out _)&&source.LastCaptureFailure.Contains("InvalidResult"));});
         Case("damage-owner-mismatch-is-unreadable", f => { f.Local.Damage!.Owner = new(); var s = f.Capture(); Check(s.Personal.Health.State == HudValueState.Unreadable && s.Personal.Primary.Magazine.State == HudValueState.Available); });
         Case("zero-life-is-known-not-missing", f => { f.Local.Damage!.CurrentHealth = 0; var s = f.Capture(); Near(f.Read(s, s.Personal.Health, f.Key(f.Local), HudInformationId.Health), 0); Check(s.Personal.Life.RawValue.Kind == HudLifeKind.Alive); });
         Case("modified-max-and-overcap-are-preserved", f => { f.Local.Damage!.CurrentHealth = 60; var s = f.Capture(); Near(f.Read(s, s.Personal.Health, f.Key(f.Local), HudInformationId.Health), 1.2); });

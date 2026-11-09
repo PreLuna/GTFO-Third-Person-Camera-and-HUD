@@ -23,5 +23,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         }
         internal HudAlertOptions Read()=>new HudAlertOptions{Enabled=enabled.Value,Actions=actions.Value,HitFeedback=hits.Value,StateFeedback=states.Value,
             ResourceWarnings=resources.Value,MaximumVisible=visible.Value,LowReserveRounds=reserve.Value,LowToolRatio=tool.Value,HitSeconds=seconds.Value}.Sanitized();
+        internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
+        internal string ControlSerialized(string key) => key == "alerts" ? enabled.GetSerializedValue() : null;
     }
 }

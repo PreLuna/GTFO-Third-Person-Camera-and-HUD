@@ -27,5 +27,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         internal HudPersonalOptions Read()=>new HudPersonalOptions{Enabled=enabled.Value,Health=health.Value,Infection=infection.Value,Weapons=weapons.Value,
             Tools=tools.Value,Items=items.Value,SupplyRatio=supply.Value,FocusSelected=focus.Value,AutoExpandSelected=automatic.Value,
             ValueFeedback=feedback.Value,PercentDecimals=decimals.Value,FeedbackSeconds=seconds.Value}.Sanitized();
+        internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
+        internal string ControlSerialized(string key) => key == "personal" ? enabled.GetSerializedValue() : null;
     }
 }

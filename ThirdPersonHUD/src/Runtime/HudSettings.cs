@@ -1,4 +1,6 @@
+using System;
 using BepInEx.Configuration;
+using PreLuna.ThirdPersonHUD.Control;
 using PreLuna.ThirdPersonHUD.Core;
 using PreLuna.ThirdPersonHUD.Content;
 using PreLuna.ThirdPersonHUD.Panel;
@@ -17,6 +19,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         readonly ConfigEntry<bool> collectContent;
         readonly ConfigEntry<float> collectionRetry;
         readonly HudPanelSettings panel;
+        readonly HudDivisionSettings division;
+        readonly HudClassicSettings classic;
         readonly HudPersonalSettings personal;
         readonly HudAlertSettings alerts;
         readonly HudReplacementSettings replacement;
@@ -25,6 +29,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         internal HudSettings(ConfigFile config)
         {
             panel = new HudPanelSettings(config);
+            division = new HudDivisionSettings(config);
+            classic = new HudClassicSettings(config);
             personal = new HudPersonalSettings(config);
             alerts = new HudAlertSettings(config);
             replacement = new HudReplacementSettings(config);
@@ -50,7 +56,14 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         internal HudWorkOptions ReadWork() => new(budget.Value, preparationSteps.Value, refresh.Value, age.Value);
         internal HudExecutionOptions ReadExecution() => new(computationMode.Value, computationRetry.Value);
         internal HudCollectionOptions ReadCollection() => new(collectContent.Value, collectionRetry.Value);
-        internal HudPanelOptions ReadPanel() => panel.Read();
+        internal HudPanelOptions ReadPanel()
+        {
+            var compact=panel.Read();
+            var style=division.Style;
+            return style is HudLayoutStyle.FourCorner or HudLayoutStyle.Radial ? classic.Read(compact,style) : division.Read(compact);
+        }
+        internal HudLayoutStyle CycleStyle()=>division.CycleStyle();
+        internal KeyCode CycleStyleKey=>division.CycleStyleKey;
         internal HudPersonalOptions ReadPersonal() => personal.Read();
         internal HudAlertOptions ReadAlerts() => alerts.Read();
         internal HudReplacementOptions ReadReplacement() => replacement.Read();
@@ -59,6 +72,77 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         internal KeyCode RestoreKey => replacement.RestoreKey;
         internal KeyCode ExpandKey => panel.ExpandKey;
         internal bool ToggleExpand => panel.ToggleExpand;
+        internal bool ToggleHudVisibility => panel.ToggleHudVisibility;
+        internal KeyCode TeamPageKey => team.PageKey;
         internal double LogIntervalSeconds => float.IsFinite(logInterval.Value) ? logInterval.Value : 10;
+
+        internal HudControlState CreateControl(string path)
+            => new HudControlState(path, ReadControl, WriteControl, SerializeControl);
+
+        HudControlValue ReadControl(string key)
+        {
+            switch (key)
+            {
+                case "panel": return HudControlValue.Boolean(panel.ControlEnabled);
+                case "personal": return HudControlValue.Boolean(personal.ControlEnabled);
+                case "team": return HudControlValue.Boolean(team.ControlEnabled);
+                case "scene": return HudControlValue.Boolean(scene.ControlEnabled);
+                case "alerts": return HudControlValue.Boolean(alerts.ControlEnabled);
+                case "panelScale": return HudControlValue.Number(panel.ControlScale);
+                case "panelWidth": return HudControlValue.Number(panel.ControlWidth);
+                default: return null;
+            }
+        }
+
+        void WriteControl(string key, HudControlValue value)
+        {
+            switch (key)
+            {
+                case "panel":
+                    if (value.TryGetBoolean(out var panelEnabled)) panel.ControlEnabled = panelEnabled;
+                    return;
+                case "personal":
+                    if (value.TryGetBoolean(out var personalEnabled)) personal.ControlEnabled = personalEnabled;
+                    return;
+                case "team":
+                    if (value.TryGetBoolean(out var teamEnabled)) team.ControlEnabled = teamEnabled;
+                    return;
+                case "scene":
+                    if (value.TryGetBoolean(out var sceneEnabled)) scene.ControlEnabled = sceneEnabled;
+                    return;
+                case "alerts":
+                    if (value.TryGetBoolean(out var alertsEnabled)) alerts.ControlEnabled = alertsEnabled;
+                    return;
+                case "panelScale":
+                    if (value.TryGetNumber(out var panelScale)) panel.ControlScale = (float)panelScale;
+                    return;
+                case "panelWidth":
+                    if (value.TryGetNumber(out var panelWidth)) panel.ControlWidth = (float)panelWidth;
+                    return;
+                default:
+                    throw new ArgumentException("未注册控制键：" + key);
+            }
+        }
+
+        string SerializeControl(string key)
+        {
+            switch (key)
+            {
+                case "panel":
+                case "panelScale":
+                case "panelWidth":
+                    return panel.ControlSerialized(key);
+                case "personal":
+                    return personal.ControlSerialized(key);
+                case "team":
+                    return team.ControlSerialized(key);
+                case "scene":
+                    return scene.ControlSerialized(key);
+                case "alerts":
+                    return alerts.ControlSerialized(key);
+                default:
+                    return null;
+            }
+        }
     }
 }

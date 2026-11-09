@@ -1,0 +1,366 @@
+{
+  "Source": "Executed unchanged 0.5.9 production CameraStyle/CameraMotion from task-start source snapshot; mathematical comparison only",
+  "SourceLockSHA256": "92CC7319797939387F107A92A5E08141FE912DFA696D8D64DED184C2F661B53F",
+  "Samples": [
+    {
+      "Frame": 0,
+      "X": 0,
+      "Activity": 0,
+      "Preset": 0,
+      "Left": false,
+      "Pivot": [
+        0,
+        1.8000001,
+        0
+      ],
+      "Distance": 2.25,
+      "Shoulder": 0.48,
+      "Fov": 80
+    },
+    {
+      "Frame": 1,
+      "X": 0.03,
+      "Activity": 0,
+      "Preset": 0,
+      "Left": false,
+      "Pivot": [
+        0.0059146173,
+        1.8000001,
+        0
+      ],
+      "Distance": 2.25,
+      "Shoulder": 0.48,
+      "Fov": 80
+    },
+    {
+      "Frame": 2,
+      "X": 0.06,
+      "Activity": 0,
+      "Preset": 0,
+      "Left": false,
+      "Pivot": [
+        0.019004703,
+        1.8000001,
+        0
+      ],
+      "Distance": 2.25,
+      "Shoulder": 0.48,
+      "Fov": 80
+    },
+    {
+      "Frame": 3,
+      "X": 0.089999996,
+      "Activity": 0,
+      "Preset": 0,
+      "Left": true,
+      "Pivot": [
+        0.037702203,
+        1.8000001,
+        0
+      ],
+      "Distance": 2.25,
+      "Shoulder": 0.30598146,
+      "Fov": 80
+    },
+    {
+      "Frame": 4,
+      "X": 0.12,
+      "Activity": 1,
+      "Preset": 0,
+      "Left": true,
+      "Pivot": [
+        0.06074875,
+        1.7963747,
+        0
+      ],
+      "Distance": 2.3037314,
+      "Shoulder": 0.17438331,
+      "Fov": 80.55717
+    },
+    {
+      "Frame": 5,
+      "X": 0.14999999,
+      "Activity": 1,
+      "Preset": 0,
+      "Left": true,
+      "Pivot": [
+        0.08713709,
+        1.7934065,
+        0
+      ],
+      "Distance": 2.349214,
+      "Shoulder": 0.06663988,
+      "Fov": 81.03673
+    },
+    {
+      "Frame": 6,
+      "X": 0.17999999,
+      "Activity": 1,
+      "Preset": 1,
+      "Left": false,
+      "Pivot": [
+        0.11551287,
+        1.7909763,
+        0
+      ],
+      "Distance": 2.3477995,
+      "Shoulder": 0.13069321,
+      "Fov": 81.449486
+    },
+    {
+      "Frame": 7,
+      "X": 0.21,
+      "Activity": 1,
+      "Preset": 1,
+      "Left": false,
+      "Pivot": [
+        0.14490454,
+        1.7889867,
+        0
+      ],
+      "Distance": 2.3466022,
+      "Shoulder": 0.18313564,
+      "Fov": 81.80475
+    },
+    {
+      "Frame": 8,
+      "X": 0.24,
+      "Activity": 2,
+      "Preset": 1,
+      "Left": false,
+      "Pivot": [
+        0.17505926,
+        1.7801069,
+        0
+      ],
+      "Distance": 2.2557805,
+      "Shoulder": 0.22607188,
+      "Fov": 81.27478
+    },
+    {
+      "Frame": 9,
+      "X": 0.24,
+      "Activity": 2,
+      "Preset": 1,
+      "Left": true,
+      "Pivot": [
+        0.20274031,
+        1.7728367,
+        0
+      ],
+      "Distance": 2.1789014,
+      "Shoulder": 0.10895889,
+      "Fov": 80.81863
+    },
+    {
+      "Frame": 10,
+      "X": 0.24,
+      "Activity": 2,
+      "Preset": 1,
+      "Left": true,
+      "Pivot": [
+        0.22388968,
+        1.7668844,
+        0
+      ],
+      "Distance": 2.1138248,
+      "Shoulder": 0.013074897,
+      "Fov": 80.42602
+    },
+    {
+      "Frame": 11,
+      "X": 0.24,
+      "Activity": 2,
+      "Preset": 1,
+      "Left": true,
+      "Pivot": [
+        0.2398354,
+        1.7620112,
+        0
+      ],
+      "Distance": 2.0587387,
+      "Shoulder": -0.06542828,
+      "Fov": 80.0881
+    },
+    {
+      "Frame": 12,
+      "X": 0.24,
+      "Activity": 3,
+      "Preset": 2,
+      "Left": false,
+      "Pivot": [
+        0.21815017,
+        1.7652719,
+        0
+      ],
+      "Distance": 1.9499344,
+      "Shoulder": 0.03344112,
+      "Fov": 78.68291
+    },
+    {
+      "Frame": 13,
+      "X": 0.24,
+      "Activity": 3,
+      "Preset": 2,
+      "Left": false,
+      "Pivot": [
+        0.23287131,
+        1.7679417,
+        0
+      ],
+      "Distance": 1.8578335,
+      "Shoulder": 0.114388525,
+      "Fov": 77.47345
+    },
+    {
+      "Frame": 14,
+      "X": 0.24,
+      "Activity": 3,
+      "Preset": 2,
+      "Left": false,
+      "Pivot": [
+        0.24137744,
+        1.7701275,
+        0
+      ],
+      "Distance": 1.7798718,
+      "Shoulder": 0.18066266,
+      "Fov": 76.43246
+    },
+    {
+      "Frame": 15,
+      "X": 0.24,
+      "Activity": 3,
+      "Preset": 2,
+      "Left": true,
+      "Pivot": [
+        0.2461252,
+        1.7719171,
+        0
+      ],
+      "Distance": 1.7138786,
+      "Shoulder": 0.060904816,
+      "Fov": 75.53647
+    },
+    {
+      "Frame": 16,
+      "X": 0.24,
+      "Activity": 0,
+      "Preset": 2,
+      "Left": true,
+      "Pivot": [
+        0.24882132,
+        1.7770077,
+        0
+      ],
+      "Distance": 1.837633,
+      "Shoulder": -0.037144616,
+      "Fov": 76.43679
+    },
+    {
+      "Frame": 17,
+      "X": 0.22,
+      "Activity": 0,
+      "Preset": 2,
+      "Left": true,
+      "Pivot": [
+        0.24684328,
+        1.7811755,
+        0
+      ],
+      "Distance": 1.9423888,
+      "Shoulder": -0.11742069,
+      "Fov": 77.2117
+    },
+    {
+      "Frame": 18,
+      "X": 0.19999999,
+      "Activity": 0,
+      "Preset": 3,
+      "Left": false,
+      "Pivot": [
+        0.2207847,
+        1.7845879,
+        0
+      ],
+      "Distance": 1.9896127,
+      "Shoulder": -0.009126663,
+      "Fov": 77.60009
+    },
+    {
+      "Frame": 19,
+      "X": 0.17999999,
+      "Activity": 0,
+      "Preset": 3,
+      "Left": false,
+      "Pivot": [
+        0.2052687,
+        1.7873815,
+        0
+      ],
+      "Distance": 2.0295868,
+      "Shoulder": 0.079536974,
+      "Fov": 77.93438
+    },
+    {
+      "Frame": 20,
+      "X": 0.16,
+      "Activity": 1,
+      "Preset": 3,
+      "Left": false,
+      "Pivot": [
+        0.18757087,
+        1.7860435,
+        0
+      ],
+      "Distance": 2.1171556,
+      "Shoulder": 0.14125246,
+      "Fov": 78.779274
+    },
+    {
+      "Frame": 21,
+      "X": 0.14,
+      "Activity": 1,
+      "Preset": 3,
+      "Left": true,
+      "Pivot": [
+        0.16875285,
+        1.784948,
+        0
+      ],
+      "Distance": 2.191281,
+      "Shoulder": 0.039514624,
+      "Fov": 79.50648
+    },
+    {
+      "Frame": 22,
+      "X": 0.12,
+      "Activity": 1,
+      "Preset": 3,
+      "Left": true,
+      "Pivot": [
+        0.14935969,
+        1.7840511,
+        0
+      ],
+      "Distance": 2.254027,
+      "Shoulder": -0.043781266,
+      "Fov": 80.13239
+    },
+    {
+      "Frame": 23,
+      "X": 0.099999994,
+      "Activity": 1,
+      "Preset": 3,
+      "Left": true,
+      "Pivot": [
+        0.12967125,
+        1.7833167,
+        0
+      ],
+      "Distance": 2.30714,
+      "Shoulder": -0.111978166,
+      "Fov": 80.67112
+    }
+  ]
+}

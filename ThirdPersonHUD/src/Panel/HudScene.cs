@@ -12,7 +12,10 @@ namespace PreLuna.ThirdPersonHUD.Panel
     public readonly record struct HudSceneMarkerView(PixelViewport Bounds,string Text,HudSceneMarkerKind Kind,int Priority);
     public readonly record struct HudScenePresentation(bool Active,PixelViewport Viewport,HudSceneOptions Options,
         HudSceneCard Interaction,HudSceneCard Objective,HudSceneMarkerView First,HudSceneMarkerView Second,HudSceneMarkerView Third,int Count)
-    {public HudSceneMarkerView this[int i]=>i switch{0=>First,1=>Second,2=>Third,_=>default};}
+    {public HudSceneCard Mission { get; init; }
+        public HudSceneCard Scan { get; init; }
+        public HudSceneCard Countdown { get; init; }
+        public HudSceneMarkerView this[int i]=>i switch{0=>First,1=>Second,2=>Third,_=>default};}
     public static class HudSceneMapper
     {
         readonly struct Reader
@@ -38,6 +41,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
             if(!o.Enabled||!HudContentRules.EvaluateDisplay(current,display,snapshot.Header,epoch,revision,policy).Allowed)return default;
             var r=new Reader(current,snapshot,epoch,revision,policy);var s=snapshot.Scene;
             var interaction=default(HudSceneCard);var objective=default(HudSceneCard);
+            HudSceneCard missionCard=default,scanCard=default,countdownCard=default;
             if(o.Interaction&&r.Subject(s.Interaction.Subject,out var target))
                 interaction=new("交互 · "+r.Text(s.Interaction.Name,target,"交互目标"),r.Text(s.Interaction.Action,target,"操作未读取"),"按键 "+r.Text(s.Interaction.Key,target,"未读取"),r.Progress(s.Interaction.Progress,target));
             if(o.Supply&&r.Subject(s.Supply.Subject,out var pack)&&r.Read(s.Supply.Recipient,pack,out var recipient)
@@ -47,12 +51,12 @@ namespace PreLuna.ThirdPersonHUD.Panel
                 interaction=new("补给 · "+r.Text(s.Supply.Item,pack),"接收对象 · "+(recipient.Self?"自己":Clean(recipient.Name,64)),"剩余 "+count,r.Progress(s.Supply.Progress,pack));
             }
             string title="",text="",secondary="";float? progress=null;
-            if(o.Mission&&r.Subject(s.Countdown.Subject,out var timer)){title="倒计时 · "+r.Text(s.Countdown.Title,timer);text=r.Text(s.Countdown.Text,timer);}
+            if(o.Mission&&r.Subject(s.Countdown.Subject,out var timer)){title="倒计时 · "+r.Text(s.Countdown.Title,timer);text=r.Text(s.Countdown.Text,timer);countdownCard=new(title,text,"",null);}
             if(o.Scan&&r.Subject(s.Scan.Subject,out var scan))
-            {if(title.Length==0){title=r.Text(s.Scan.Text,scan);progress=r.Progress(s.Scan.Progress,scan);text=progress.HasValue?HudReadoutFormatting.Percent(progress.Value,0):"进度未读取";}
+            {scanCard=new(r.Text(s.Scan.Text,scan),"","",r.Progress(s.Scan.Progress,scan));if(title.Length==0){title=r.Text(s.Scan.Text,scan);progress=r.Progress(s.Scan.Progress,scan);text=progress.HasValue?HudReadoutFormatting.Percent(progress.Value,0):"进度未读取";}
                 else secondary=r.Text(s.Scan.Text,scan)+" "+(r.Progress(s.Scan.Progress,scan) is float pg?HudReadoutFormatting.Percent(pg,0):"进度未读取");}
             if(o.Mission&&expanded&&r.Subject(s.Mission.Subject,out var mission))
-            {if(title.Length==0){title="任务 · "+r.Text(s.Mission.Title,mission,"当前目标");text=r.Text(s.Mission.Text,mission);}else secondary+=(secondary.Length>0?" · ":"")+"任务 "+r.Text(s.Mission.Text,mission);}
+            {missionCard=new("任务 · "+r.Text(s.Mission.Title,mission,"当前目标"),r.Text(s.Mission.Text,mission),"",null);if(title.Length==0){title="任务 · "+r.Text(s.Mission.Title,mission,"当前目标");text=r.Text(s.Mission.Text,mission);}else secondary+=(secondary.Length>0?" · ":"")+"任务 "+r.Text(s.Mission.Text,mission);}
             if(title.Length>0)objective=new(title,text,secondary,progress);
             HudSceneMarkerView first=default,second=default,third=default;int countVisible=0;
             if(o.Markers&&o.MaximumMarkers>0)
@@ -76,7 +80,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
                 }
                 first=a;second=b;third=d;countVisible=Math.Min(o.MaximumMarkers,(a.Priority>0?1:0)+(b.Priority>0?1:0)+(d.Priority>0?1:0));
             }
-            return new(true,display.Camera.Viewport,o,interaction,objective,first,second,third,countVisible);
+            return new(true,display.Camera.Viewport,o,interaction,objective,first,second,third,countVisible){Mission=missionCard,Scan=scanCard,Countdown=countdownCard};
         }
         public static bool CountdownCovered(in HudRuntimeContext current,in HudContentSnapshot snapshot,long epoch,long revision,HudContentPolicy policy,HudSceneOptions raw)
         {

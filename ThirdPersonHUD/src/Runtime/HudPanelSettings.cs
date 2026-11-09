@@ -9,7 +9,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
 {
     internal sealed class HudPanelSettings
     {
-        readonly ConfigEntry<bool> enabled,mirror,decorations,glow,scanLines,shadow,reduce,toggle;
+        readonly ConfigEntry<bool> enabled,mirror,decorations,glow,scanLines,shadow,reduce,toggle,toggleHud;
         readonly ConfigEntry<float> width,scale,height,side,fixedSide,rightX,rightY,leftX,leftY,margin,safe,aimScale,aimX,aimY,follow;
         readonly ConfigEntry<float> background,decoration,text,brightness,depth,labelSize,bodySize,numberSize,combat,lowHealth,highInfection,exploration,transition;
         readonly ConfigEntry<string> font,baseColor,textColor,attentionColor,dangerColor,backgroundColor;
@@ -59,11 +59,30 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             lowHealth=Number("Panel.State","LowHealth",d.Behavior.LowHealth,0,1,"低生命视觉强调及生命危急提示阈值。");
             highInfection=Number("Panel.State","HighInfection",d.Behavior.HighInfection,0,1,"高感染视觉强调阈值。");
             exploration=Number("Panel.State","ExplorationOpacity",d.Behavior.ExplorationOpacity,.3f,1,"探索时装饰强度；关键文字不随此值减弱。");
-            expandKey=c.Bind("Panel.Input","ExpandKey",KeyCode.LeftAlt,"按住展开详情；只读取按键，不拦截游戏输入，可改绑。");
+            expandKey=c.Bind("Panel.Input","ExpandKey",KeyCode.Insert,"HUD显示开关，默认Insert；LeftAlt用于游戏语音、RightAlt用于第三人称观察。关闭ToggleHudVisibility后改为详情按键。可改绑。");
+            toggleHud=c.Bind("Panel.Input","ToggleHudVisibility",true,"默认第三人称下常驻完整HUD，按一次ExpandKey隐藏/显示；回第一人称隐藏，返回第三人称保留本次开关选择，重启游戏默认显示。false沿用旧详情模式。");
             toggle=c.Bind("Panel.Input","ToggleExpand",false,"false 按住展开，true 按一次切换；失去资格后重置。");
+            var bindingVersion=c.Bind("Panel.Input","BindingVersion",0,"展开键迁移版本，由模组维护。首次升级将旧LeftAlt迁移为Insert，保留其他自定义键与按住/切换设置。");
+            if(bindingVersion.Value<1)
+            {
+                if(expandKey.Value==KeyCode.LeftAlt)expandKey.Value=KeyCode.Insert;
+                bindingVersion.Value=1;
+            }
         }
         internal KeyCode ExpandKey=>expandKey.Value;
         internal bool ToggleExpand=>toggle.Value;
+        internal bool ToggleHudVisibility=>toggleHud.Value;
+        internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
+        internal float ControlScale { get => scale.Value; set => scale.Value = value; }
+        internal float ControlWidth { get => width.Value; set => width.Value = value; }
+        internal string ControlSerialized(string key)
+            => key switch
+            {
+                "panel" => enabled.GetSerializedValue(),
+                "panelScale" => scale.GetSerializedValue(),
+                "panelWidth" => width.GetSerializedValue(),
+                _ => null
+            };
         internal HudPanelOptions Read()
         {
             var d=HudPanelOptions.Default;

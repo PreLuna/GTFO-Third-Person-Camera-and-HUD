@@ -8,12 +8,14 @@ namespace PreLuna.ThirdPersonHUD.Panel
 {
     public readonly record struct HudReadoutValue(HudValueState State,string Text,double? Amount=null)
     { public bool Available=>State==HudValueState.Available&&Amount.HasValue; }
-    public readonly record struct HudDetailRow(string Label,string Name,string Value,HudValueState State);
+    public readonly record struct HudDetailRow(string Label,string Name,string Value,HudValueState State)
+    { public bool Visible { get; init; } }
     public readonly record struct HudPersonalPresentation
     {
         public bool Active { get; init; }
         public HudPersonalOptions Options { get; init; }
         public HudEquipmentSlot Selected { get; init; }
+        public HudEquipmentSlot FocusSlot { get; init; }
         public HudValueState SelectionState { get; init; }
         public HudReadoutValue Health { get; init; }
         public HudReadoutValue Infection { get; init; }
@@ -80,7 +82,8 @@ namespace PreLuna.ThirdPersonHUD.Panel
         readonly record struct Equipment(HudEquipmentSlot Slot,ObjectIdentity Identity,HudValueState State,string Name,
             HudReadoutValue Magazine,HudReadoutValue Reserve,HudReadoutValue Supply,HudReadoutValue Count,string Deployment)
         {
-            public string Ammo=>State==HudValueState.Available?Magazine.Text+" / "+Reserve.Text:HudReadoutFormatting.State(State,true);
+            public bool NameAvailable { get; init; }
+            public string Ammo=>State!=HudValueState.Available?"":Magazine.Available&&Reserve.Available?Magazine.Text+" / "+Reserve.Text:Magazine.Available?Magazine.Text:Reserve.Available?"备用 "+Reserve.Text:"";
             public string Item=>State==HudValueState.Available?Name+" · "+Count.Text:HudReadoutFormatting.State(State);
         }
         readonly struct Reader
@@ -115,26 +118,27 @@ namespace PreLuna.ThirdPersonHUD.Panel
                 if(expected==HudEquipmentSlot.Tool&&Read(gear.Deployment,has?identity:Player,HudFreshness.Live,out var deployed,out _))
                     deployment=deployed.Kind==HudDeploymentKind.Deployed?"已部署":deployed.Kind==HudDeploymentKind.Recovering?"回收中":"携带中";
                 if(!has)return new(expected,default,state,HudReadoutFormatting.State(state),Missing(state),Missing(state),Missing(state),Missing(state),deployment);
-                string name=Read(gear.Name,identity,HudFreshness.Identity,out var title,out var nameState)?HudReadoutFormatting.Name(title.Text):Role(expected)+" · "+HudReadoutFormatting.State(nameState);
+                bool nameAvailable=Read(gear.Name,identity,HudFreshness.Identity,out var title,out var nameState);
+                string name=nameAvailable?HudReadoutFormatting.Name(title.Text):Role(expected);
                 var count=expected==HudEquipmentSlot.ResourcePack?Quantity(gear.Uses,identity,HudInformationId.ResourcePackUses,"次")
                     :Quantity(gear.ItemCount,identity,HudInformationId.ConsumableCount,"个");
                 return new(expected,identity,HudValueState.Available,name,Quantity(gear.Magazine,identity,HudInformationId.Magazine),
                     Quantity(gear.ReserveRounds,identity,HudInformationId.ReserveRounds),Quantity(gear.SupplyRatio,identity,
-                    expected==HudEquipmentSlot.Tool?HudInformationId.ToolResource:HudInformationId.SupplyRatio),count,deployment);
+                    expected==HudEquipmentSlot.Tool?HudInformationId.ToolResource:HudInformationId.SupplyRatio),count,deployment){NameAvailable=nameAvailable&&!string.IsNullOrWhiteSpace(name)&&name!="—"};
             }
         }
         static HudReadoutValue Missing(HudValueState state)=>new(state,state==HudValueState.NotEquipped?"未携带":state==HudValueState.Unsupported?"不支持":"—");
         static float? Fraction(in HudReadoutValue value)=>value.Available?(float)Math.Clamp(value.Amount!.Value,0,1):null;
-        static HudDetailRow Row(string label,in Equipment gear,string value)=>new(label,gear.State==HudValueState.Available?gear.Name:"—",gear.State==HudValueState.Available?value:HudReadoutFormatting.State(gear.State),gear.State);
+        static HudDetailRow Row(string label,in Equipment gear,string value)=>new(label,gear.State==HudValueState.Available?gear.Name:"—",gear.State==HudValueState.Available?value:HudReadoutFormatting.State(gear.State),gear.State){Visible=gear.State==HudValueState.Available&&gear.NameAvailable};
         static HudDetailRow ToolRow(in Equipment tool)
         {
-            var row=Row("工具",tool,tool.Supply.Text);
+            var row=Row("工具",tool,tool.Supply.Available?tool.Supply.Text:"");
             return !string.IsNullOrEmpty(tool.Deployment)&&tool.Deployment!="携带中"
                 ?row with{Value=(tool.State==HudValueState.Available?tool.Supply.Text:"—")+" · "+tool.Deployment}:row;
         }
         static bool IsGear(HudEquipmentSlot slot)=>slot is HudEquipmentSlot.Primary or HudEquipmentSlot.Secondary or HudEquipmentSlot.Melee or HudEquipmentSlot.Tool;
         public static string Role(HudEquipmentSlot slot)=>slot switch{HudEquipmentSlot.Primary=>"主武器",HudEquipmentSlot.Secondary=>"副武器",HudEquipmentSlot.Melee=>"近战",
-            HudEquipmentSlot.Tool=>"工具",HudEquipmentSlot.ResourcePack=>"补给",HudEquipmentSlot.Consumable=>"消耗品",HudEquipmentSlot.Heavy=>"重型物品",HudEquipmentSlot.Carry=>"搬运",HudEquipmentSlot.EmptyHands=>"空手",_=>"装备"};
+            HudEquipmentSlot.Tool=>"工具",HudEquipmentSlot.ResourcePack=>"补给",HudEquipmentSlot.Consumable=>"消耗品",HudEquipmentSlot.Heavy=>"重型消耗品",HudEquipmentSlot.Carry=>"任务携带物",HudEquipmentSlot.EmptyHands=>"空手",_=>"装备"};
         public static bool WantsDetails(in HudRuntimeContext current,in HudContentSnapshot snapshot,long epoch,long revision,in HudContentPolicy policy,in HudPersonalOptions raw)
         {
             var o=raw.Sanitized();if(!o.Enabled||!o.AutoExpandSelected||!o.FocusSelected)return false;
@@ -185,12 +189,12 @@ namespace PreLuna.ThirdPersonHUD.Panel
             var info=new HudPersonalPresentation{Active=true,Options=o,Selected=selected?selection.Slot:HudEquipmentSlot.Unknown,SelectionState=selectionState,
                 Health=health,Infection=infection,HealthSampleAt=p.Health.Stamp.CapturedAtSeconds,InfectionSampleAt=p.Infection.Stamp.CapturedAtSeconds,
                 ShowInfection=o.Infection&&(!infection.Available||infection.Amount>0||expanded),Life=life,
-                FocusLabel=o.FocusSelected?Role(selected?selection.Slot:HudEquipmentSlot.Unknown):"主武器摘要",FocusVisible=selected?module||!o.FocusSelected&&o.Weapons:o.Weapons||o.Tools||o.Items,FocusStatus=status,
+                FocusSlot=slot,FocusLabel=o.FocusSelected?Role(selected?selection.Slot:HudEquipmentSlot.Unknown):"主武器摘要",FocusVisible=selected&&(slot==HudEquipmentSlot.EmptyHands||focus.State==HudValueState.Available)&&(module||!o.FocusSelected&&o.Weapons),FocusStatus=status,
                 MainLabel=mainLabel,ReserveLabel=reserveLabel,ToolName=tool.State==HudValueState.Available?tool.Name:"—",ToolStatus=tool.Deployment,
                 OtherWeaponLabel=Role(other.Slot),OtherWeaponName=other.State==HudValueState.Available?other.Name:"—",OtherWeaponValue=other.Ammo,ItemLabel=Role(item.Slot),
                 ItemName=item.State==HudValueState.Available?item.Name:"—",ItemValue=item.State==HudValueState.Available?item.Slot==HudEquipmentSlot.Carry?"搬运中":item.Count.Text:HudReadoutFormatting.State(item.State),
                 Primary=Row("主武器",main,main.Ammo),Secondary=Row("副武器",special,special.Ammo),Tool=ToolRow(tool),
-                Pack=Row("补给",pack,pack.Count.Text),Consumable=Row("消耗品",consumable,consumable.Count.Text),Heavy=Row("重型物品",heavy,heavy.Count.Text),Carry=Row("搬运",carry,carry.State==HudValueState.Available?"搬运中":HudReadoutFormatting.State(carry.State))};
+                Pack=Row("补给",pack,pack.Count.Available?pack.Count.Text:""),Consumable=Row("消耗品",consumable,consumable.Count.Available?consumable.Count.Text:""),Heavy=Row("重型消耗品",heavy,heavy.Count.Available?heavy.Count.Text:""),Carry=Row("任务携带物",carry,"")};
             return new(health.Text,infection.Text,focusName,primary,reserve,tool.Supply.Text,itemText,other.Ammo,supply,Fraction(health),Fraction(tool.Supply)){Personal=info};
         }
         static string QuantityStatus(HudReadoutValue a,HudReadoutValue? b=null)

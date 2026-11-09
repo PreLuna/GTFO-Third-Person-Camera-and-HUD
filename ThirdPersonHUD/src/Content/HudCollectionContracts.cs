@@ -5,6 +5,7 @@ namespace PreLuna.ThirdPersonHUD.Content
     [Flags]
     public enum HudContentChange { None = 0, Health = 1, Ammo = 2, Equipment = 4, Reload = 8, Items = 16 }
     public interface IHudContentRefreshSource { long ChangeVersion { get; } }
+    public interface IHudContentFailureSource { string LastCaptureFailure { get; } }
     // Optional bounded event storage is cleared with the owning content session, including work-version changes.
     public interface IHudContentTransientSource { void ClearTransient(); }
     public readonly record struct HudCollectionOptions(bool Enabled, double ErrorRetryDelaySeconds)

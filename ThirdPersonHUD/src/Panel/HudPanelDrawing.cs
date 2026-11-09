@@ -4,11 +4,15 @@ using PreLuna.ThirdPerson.Contracts;
 namespace PreLuna.ThirdPersonHUD.Panel
 {
     public enum HudDrawKind { Rectangle, Text }
+    public enum HudTextAlign { Left, Center, Right }
     public readonly record struct HudDrawCommand(HudDrawKind Kind, PixelViewport Rect, HudColor Color, string Text, float FontSize, string Region)
-    { public bool Numeric { get; init; } }
+    { public bool Numeric { get; init; }
+        public bool CorePlane { get; init; }
+        public float NumberWidth { get; init; }
+        public HudTextAlign Align { get; init; } }
     public sealed class HudDrawList
     {
-        readonly HudDrawCommand[] commands = new HudDrawCommand[256];
+        readonly HudDrawCommand[] commands = new HudDrawCommand[512];
         public int Count { get; private set; }
         public HudDrawCommand this[int index] => index>=0&&index<Count?commands[index]:throw new ArgumentOutOfRangeException(nameof(index));
         public void Clear() { Array.Clear(commands,0,Count);Count=0; }
@@ -36,9 +40,17 @@ namespace PreLuna.ThirdPersonHUD.Panel
     public static class HudPanelDrawing
     {
         // Used for runtime glyph validation and the offline font check. No borrowed game assets.
-        public const string RequiredGlyphs="个人状态探索战斗危险肩瞄详情生命感染当前装备弹匣备用工具携带主副武器补给比例展开按住未读取不可异常已过期支持使用次数物品数量部署回收中近战空手消耗重型搬运摘要倒地死亡资源换蓄力受击左右侧前后方危急过高不足尽包队伍员真人机离线同步位需要救援标记库存交互对象操作键剩余接收自己任务倒计时扫描往发现目标进度秒:m−+—…%0123456789/·<>E";
+        public const string RequiredGlyphs="个人状态探索战斗危险肩瞄详情生命感染当前装备弹匣备用工具携带主副武器补给比例展开按住未读取不可异常已过期支持使用次数物品数量部署回收中近战空手消耗重型搬运摘要倒地死亡资源换蓄力受击左右侧前后方危急过高不足尽包队伍员真人机离线同步位需要救援标记库存交互对象操作键剩余接收自己任务倒计时扫描往发现目标进度秒:m−+—…%0123456789/·<>E持续持有装填弹药状态";
         public static void Build(in HudPanelPlacement panel,in HudPanelOptions raw,in HudPanelVisual visual,in HudPanelView view,HudDrawList output)
         {
+            if(raw.Layout.Style==HudLayoutStyle.DivisionV3){HudDivisionDrawing.Build(panel,raw,visual,view,output);return;}
+            if(raw.Layout.Style is HudLayoutStyle.FourCorner or HudLayoutStyle.Radial){HudClassicDrawing.Build(panel,raw,visual,view,output);return;}
+            if(raw.Layout.TeamPage)
+            {
+                output.Clear();if(!panel.IsValid)return;
+                output.Add(new(HudDrawKind.Rectangle,new(0,0,panel.Bounds.Width,panel.Bounds.Height),raw.Theme.Background.Opacity(raw.Theme.BackgroundOpacity),"",0,"background"));
+                HudTeamDrawing.Build(panel,raw,view.Team,output);return;
+            }
             if(view.Personal.Active){HudPersonalDrawing.Build(panel,raw,visual,view,output);HudSceneDrawing.Build(panel,raw,view.Scene,output);return;}
             output.Clear(); if(!panel.IsValid)return;
             var o=raw.Sanitized();var t=o.Theme;var f=o.Typography;

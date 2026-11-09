@@ -12,18 +12,20 @@ using Player;
 using UnityEngine;
 using PreLuna.ThirdPerson.Diagnostics;
 using PreLuna.ThirdPerson.Core;
+using PreLuna.ThirdPerson.Control;
 
 namespace PreLuna.ThirdPerson.Runtime
 {
     [BepInPlugin(Id,"第三人称视角",Version)]
     public sealed class Plugin : BasePlugin
     {
-        public const string Id="PreLuna.ThirdPerson",Version="0.5.0",GameRevision="34873";
+        public const string Id="PreLuna.ThirdPerson",Version="0.6.3",GameRevision="34873";
         const string NativeHash="C6A5C3CD8CA5FE2A8C1A71A3D107663E8CBF01404820DBBDA2EA10C4BFD7BF55";
         internal static Plugin Instance;
         internal PluginSettings Settings;
         internal ThirdPersonRuntime Runtime;
         internal OptionalControlProbe Control;
+        internal ThirdPersonControlState CameraControl;
         internal PluginInventory Inventory;
         internal string BinaryHash;
         long hudConfigurationRevision=1;
@@ -42,7 +44,9 @@ namespace PreLuna.ThirdPerson.Runtime
             try
             {
                 BinaryHash=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(GetType().Assembly.Location)));
-                Settings=new PluginSettings(Config);harmony=new Harmony(Id);
+                Settings=new PluginSettings(Config);
+                CameraControl=new ThirdPersonControlState(Config.ConfigFilePath,Settings.ReadControl,Settings.WriteControl,Settings.SerializeControl,()=>Config.SaveOnConfigSet,value=>Config.SaveOnConfigSet=value);
+                harmony=new Harmony(Id);
                 Control=new OptionalControlProbe(()=>
                 {
                     foreach(var a in AppDomain.CurrentDomain.GetAssemblies())if(a.GetName().Name=="PreLuna.MicroMaster")return a.GetType("PreLuna.MicroMaster.ControlRuntime")??typeof(Plugin);
@@ -61,6 +65,9 @@ namespace PreLuna.ThirdPerson.Runtime
                 Install(guard,typeof(FPSCamera),"OnPostRender",null,null,nameof(AfterMainRenderFault));
                 Install(guard,typeof(FPSCamera),"FixedUpdate",nameof(Logic));
                 Install(guard,typeof(FPSCamera),"UpdateCameraRay",nameof(Logic));
+                Install(guard,typeof(LookCameraController),"MouseLookUpdate",nameof(Look),null,nameof(LookFinished),new[]{typeof(float),typeof(float)});
+                Install(guard,typeof(LookCameraController),"GamepadLookUpdate",nameof(Look),null,nameof(LookFinished),new[]{typeof(float),typeof(float)});
+                Install(guard,typeof(PlayerLocomotion),"GetInputMoveVector",nameof(Move),parameters:new[]{typeof(bool)});
                 Install(guard,typeof(Gear.BulletWeapon),"Fire",nameof(Fire),null,nameof(FireFinished));
                 Install(guard,typeof(Gear.Shotgun),"Fire",nameof(Fire),null,nameof(FireFinished));
                 Install(guard,typeof(FirstPersonItemHolder),"UpdateAimInput",nameof(AimInput));
@@ -73,7 +80,7 @@ namespace PreLuna.ThirdPerson.Runtime
                 Camera.onPreCull+=beforeCamera;beforeSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
                 Camera.onPreRender+=beforeRender;renderSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
                 Camera.onPostRender+=afterCamera;afterSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
-                Log.LogInfo("第三人称 0.5.0 测试候选已加载；SHA256="+BinaryHash+"；F6 开关 / F7 默认 / F8 诊断 / F9 换肩 / F10 风格 / F11 性能采样。默认关闭；总验收尚未通过。");
+                Log.LogInfo("第三人称 "+Version+" 身体比例修复候选已加载；SHA256="+BinaryHash+"；本机视觉根1.2倍放大仅在第三人称身体显示期间校正，第一人称恢复原值；F8保留尺寸诊断。待实机验收。");
             }
             catch {Unload();throw;}
         }
@@ -93,6 +100,19 @@ namespace PreLuna.ThirdPerson.Runtime
         static Exception AfterMainRenderFault(FPSCamera __instance,Exception __exception)
         {Instance?.Runtime?.Guard(()=>Instance.Runtime.EndFor(__instance,__exception==null));return __exception;}
         static void Logic(FPSCamera __instance)=>Instance?.Runtime?.Guard(()=>Instance.Runtime.BeforeLogic(__instance));
+        static void Look(LookCameraController __instance,out CameraInputAdapter.Capture __state)
+        {
+            __state=default;var runtime=Instance?.Runtime;if(runtime==null)return;
+            try{runtime.BeginLook(__instance,out __state);}catch(Exception error){runtime.Recover(error);}
+        }
+        static Exception LookFinished(CameraInputAdapter.Capture __state,Exception __exception)
+        {
+            var runtime=Instance?.Runtime;
+            if(runtime!=null)try{runtime.FinishLook(__state,__exception==null);}catch(Exception error){runtime.Recover(error);}
+            return __exception;
+        }
+        static void Move(PlayerLocomotion __instance)
+        {var runtime=Instance?.Runtime;if(runtime!=null)try{runtime.BeforeMove(__instance);}catch(Exception error){runtime.Recover(error);}}
         static void Fire(Gear.BulletWeapon __instance,out IDisposable __state)
         {
             var journal=new Core.RestoreJournal();__state=journal;
@@ -117,7 +137,7 @@ namespace PreLuna.ThirdPerson.Runtime
         public override bool Unload()
         {
             using var cleanup=new RestoreJournal();
-            cleanup.Add(()=>{Runtime=null;Instance=null;Control=null;});
+            cleanup.Add(()=>{Runtime=null;Instance=null;Control=null;CameraControl=null;});
             cleanup.Add(()=>{if(Runtime!=null)UnityEngine.Object.Destroy(Runtime);});
             cleanup.Add(()=>harmony?.UnpatchSelf());
             cleanup.Add(()=>{if(hudConfigurationChanged!=null){Config.SettingChanged-=hudConfigurationChanged;hudConfigurationChanged=null;ResourceLedger.Release(OwnedResource.Subscription);}});

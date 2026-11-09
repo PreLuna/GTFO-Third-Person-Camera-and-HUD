@@ -23,7 +23,12 @@ namespace PreLuna.ThirdPerson.CameraSystem
         }
         public static float Safe(float value,float min,float max,float fallback)=>float.IsFinite(value)?Math.Clamp(value,min,max):fallback;
     }
-    public readonly record struct RigTarget(Vector3 Pivot,Vector3 Forward,float Distance,float Shoulder,float VerticalFov,CameraActivity Activity,float Feedback);
+    public readonly record struct RigTarget(Vector3 Pivot,Vector3 Forward,float Distance,float Shoulder,float VerticalFov,CameraActivity Activity,float Feedback)
+    {
+        // Only C1 supplies this: the displaced pivot must remain connected to the native eye through free space.
+        public Vector3? PivotOrigin {get;init;}
+        public Vector3? LogicalEye {get;init;}
+    }
     public sealed class CameraStyleSolver
     {
         bool initialized,startClose;
@@ -31,14 +36,37 @@ namespace PreLuna.ThirdPerson.CameraSystem
         float eyeHeight,height,distance,shoulder,fov,movement;
         float closeDistance=.55f;
         double phase;
-        public void Reset(bool fromFirstPerson=false,float initialDistance=.55f){initialized=false;startClose=fromFirstPerson;closeDistance=StyleSettings.Safe(initialDistance,.5f,1,.55f);phase=0;movement=0;}
-        public RigTarget Step(LogicalView logical,float dt,CameraActivity activity,CameraPreset preset,bool left,StyleSettings settings,float nativeFov)
+        readonly CameraMotionSolver motion=new();
+        readonly CameraKinematics kinematics=new();
+        readonly CameraTransitionSolver transition=new();
+        readonly CameraActionFeedbackSolver actionFeedback=new();
+        bool usedTransition;
+        int advancedFrame=-1,advancedGeneration;
+        public MotionFrame Motion=>motion.Current;
+        public CameraKinematicFrame Kinematics=>kinematics.Current;
+        public TransitionFrame Transition=>transition.Current;
+        public ActionFeedbackFrame ActionFeedback=>actionFeedback.Current;
+        public CameraProfile TargetProfile {get;private set;}
+        public CameraProfile CurrentProfile=>new(distance,shoulder,height,fov);
+        public void Reset(bool fromFirstPerson=false,float initialDistance=.55f)
+        {initialized=false;startClose=fromFirstPerson;closeDistance=StyleSettings.Safe(initialDistance,.5f,1,.55f);phase=0;movement=0;usedTransition=false;advancedFrame=-1;motion.Reset();kinematics.Reset();transition.Reset();actionFeedback.Reset();}
+        public RigTarget Step(LogicalView logical,float dt,CameraActivity activity,CameraPreset preset,bool left,StyleSettings settings,float nativeFov,MotionSettings? motionOptions=null,
+            TransitionSettings? transitionOptions=null,ActionFeedbackSettings? feedbackOptions=null)
         {
+            if(!ViewMath.Finite(logical.Body)||!ViewMath.Finite(logical.Eye)||!ViewMath.Finite(logical.Forward)||logical.Forward.LengthSquared()<.00001f)
+            {Reset();return new(logical.Eye,logical.Forward,float.NaN,0,80,activity,0);}
             var p=settings.Profile(activity,preset);
+            var transitions=transitionOptions??(TransitionSettings.Default with{Enabled=false});
+            if(usedTransition&&!transitions.Enabled){var previous=transition.Current.Profile;distance=previous.Distance;shoulder=previous.Shoulder;height=previous.Height;fov=previous.VerticalFov;transition.Reset();}
+            usedTransition=transitions.Enabled;
             float response=StyleSettings.Safe(settings.PositionResponse,1,40,18);
             if(preset==CameraPreset.Stable)response=40;
             if(preset==CameraPreset.Traversal)response=Math.Min(response,12);
             float elapsed=float.IsFinite(dt)?Math.Clamp(dt,0,.2f):0;
+            bool modern=transitions.Enabled||feedbackOptions?.Enabled==true;
+            float sampledDt=modern&&logical.Frame==advancedFrame&&logical.Generation==advancedGeneration?0:dt;
+            if(modern&&sampledDt==0)elapsed=0;
+            if(modern&&dt>0){advancedFrame=logical.Frame;advancedGeneration=logical.Generation;}
             var body=logical.Body;
             float targetEye=Math.Clamp(logical.Eye.Y-body.Y,.65f,2.2f);
             float requestedShoulder=left?-p.Shoulder:p.Shoulder;
@@ -69,8 +97,28 @@ namespace PreLuna.ThirdPerson.CameraSystem
             }
             float feedback=settings.MovementFeedback&&preset!=CameraPreset.Stable
                 ?(float)Math.Sin(phase)*StyleSettings.Safe(settings.FeedbackAmplitude,0,.02f,.008f)*movement*(activity==CameraActivity.ShoulderAim?.15f:1):0;
+            var sampled=modern?kinematics.Step(logical,sampledDt):default;
+            TargetProfile=p with{Shoulder=requestedShoulder};
+            if(transitions.Enabled)
+            {
+                var t=transition.Step(logical,sampled,sampledDt,activity,preset,left,settings,transitions,new(distance,shoulder,height,fov));
+                distance=t.Profile.Distance;shoulder=t.Profile.Shoulder;height=t.Profile.Height;fov=t.Profile.VerticalFov;TargetProfile=t.Target;
+            }
+            var feedbackOffset=Vector3.UnitY*feedback;
+            if(feedbackOptions is ActionFeedbackSettings effects&&effects.Enabled)
+            {feedbackOffset=actionFeedback.Step(logical,sampled,sampledDt,activity,preset,settings,effects).Offset;feedback=feedbackOffset.Y;}
+            else actionFeedback.Reset();
             lastBody=body;
-            return new(anchor+Vector3.UnitY*(eyeHeight+height+feedback),ViewMath.Unit(logical.Forward,Vector3.UnitZ),distance,shoulder,fov,activity,feedback);
+            var pivot=anchor+Vector3.UnitY*(eyeHeight+height)+feedbackOffset;
+            var options=motionOptions??MotionSettings.Legacy;
+            if(options.Enabled)
+            {
+                var translated=motion.Step(logical,dt,activity,preset,settings,options);
+                pivot=translated.Pivot+Vector3.UnitY*height+feedbackOffset;
+            }
+            else motion.Reset();
+            return new(pivot,ViewMath.Unit(logical.Forward,Vector3.UnitZ),distance,shoulder,fov,activity,feedback)
+                {PivotOrigin=options.Enabled||feedbackOffset.LengthSquared()>1e-10f?logical.Eye+Vector3.UnitY*height:null,LogicalEye=logical.Eye};
         }
     }
 }

@@ -28,7 +28,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         HudExpandState expand;
         HudLifecycle lifecycle;
         IThirdPersonViewProvider provider;
-        bool stopped, reading;
+        bool stopped, reading, hudHidden, reportedFirstDraw, teamPage, classicTeam=true;
         double lastErrorAt = double.NegativeInfinity;
         double lastPerformanceAt = double.NaN;
         double lastComputationErrorAt = double.NegativeInfinity;
@@ -52,11 +52,13 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             if(originalRestored||panel==null||!panel.IsReady||!replacementOptions.Enabled
                 ||!lifecycle.TryGetContent(current,out var s)||!lifecycle.TryGetStatus(out var life)||!lifecycle.TryGetCollectionStatus(out var collection))return 0;
             var personal=HudReplacementCoverage.Evaluate(current,s,life.WorkEpoch,collection.ContentRevision,collection.Policy,personalOptions,panelOptions.Layout.Expanded)&replacementOptions.Groups;
-            var team=teamOptions.Enabled&&teamOptions.ReplaceOriginal&&panelOptions.Layout.Team
+            if(panelOptions.Layout.Style is HudLayoutStyle.DivisionV3 or HudLayoutStyle.FourCorner or HudLayoutStyle.Radial)
+                personal=HudDivisionDrawing.FilterCoverage(personal,HudPersonalMapper.Map(current,s,life.WorkEpoch,collection.ContentRevision,collection.Policy,personalOptions,panelOptions.Layout.Expanded));
+            var team=panelOptions.Layout.Style==HudLayoutStyle.Compact&&teamOptions.Enabled&&teamOptions.ReplaceOriginal&&panelOptions.Layout.Team
                 ?HudTeamMapper.Map(current,s,life.WorkEpoch,collection.ContentRevision,collection.Policy,teamOptions,panelOptions.Layout.Expanded).Coverage:0;
-            bool scene=HudSceneMapper.CountdownCovered(current,s,life.WorkEpoch,collection.ContentRevision,collection.Policy,sceneOptions)
+            bool scene=panelOptions.Layout.Style==HudLayoutStyle.Compact&&HudSceneMapper.CountdownCovered(current,s,life.WorkEpoch,collection.ContentRevision,collection.Policy,sceneOptions)
                 &&HudSceneDrawing.Layout(presentation.Diagnostics.LastDraw.Panel,drawDisplay.Camera.Viewport,sceneOptions,out _,out _);
-            return personal|team|(scene?HudOriginalGroup.Countdown:0);
+            return panelOptions.Layout.TeamPage?team:personal|team|(scene?HudOriginalGroup.Countdown:0);
         }
         [HideFromIl2Cpp] void CheckOriginal(in HudRuntimeContext current,bool available,bool enabled)
         {
@@ -99,20 +101,48 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 {RestoreOriginal(originalRestored);Plugin.Instance?.Log.LogInfo(originalRestored?"原版 HUD 已恢复，替代已暂停；再次按恢复键可恢复自动校验。":"允许重新校验原版 HUD 替代。");}
                 if(panel!=null)
                 {
-                    panelOptions=settings.ReadPanel();
+                    bool eligibleForInput=available&&inLevel&&options.Enabled&&panelOptions.Layout.Enabled&&HudEligibility.EvaluateCurrent(current).Allowed;
+                    if(eligibleForInput&&settings.CycleStyleKey!=KeyCode.None&&Input.GetKeyDown(settings.CycleStyleKey))
+                    {var nextStyle=settings.CycleStyle();Plugin.Instance?.Log.LogInfo($"HUD样式切换为 {nextStyle}；[Presentation] Style 决定下次启动样式，本次按键切换不写CFG。");}
+                    var nextPanel=settings.ReadPanel();
+                    if(nextPanel.Layout.Style!=panelOptions.Layout.Style)
+                    {original.RestoreAll();original.ResetConflicts();replacementFrame=-1;lifecycle.HideForRender();}
+                    panelOptions=nextPanel;
+                    bool classicStyle=panelOptions.Layout.Style is HudLayoutStyle.FourCorner or HudLayoutStyle.Radial;
                     personalOptions=settings.ReadPersonal();
                     var nextTeam=settings.ReadTeam();
                     if(nextTeam!=teamOptions){original.ResetConflicts();teamOptions=nextTeam;}
-                    teamCapture?.SetTeamEnabled(teamOptions.Enabled);
                     var nextScene=settings.ReadScene();
                     if(nextScene!=sceneOptions){original.ResetConflicts();sceneOptions=nextScene;}
                     sceneCapture?.ConfigureScene(sceneOptions.Collection);
                     alertOptions=settings.ReadAlerts();
                     bool eligible=available&&inLevel&&options.Enabled&&panelOptions.Layout.Enabled&&HudEligibility.EvaluateCurrent(current).Allowed;
-                    expand=expand.Update(eligible,eligible&&Input.GetKey(settings.ExpandKey),settings.ToggleExpand);
-                    bool automatic=eligible&&lifecycle.TryGetContent(current,out var content)&&lifecycle.TryGetCollectionStatus(out var collection)
-                        &&lifecycle.TryGetStatus(out var life)&&HudPersonalMapper.WantsDetails(current,content,life.WorkEpoch,collection.ContentRevision,collection.Policy,personalOptions);
-                    panelOptions=panelOptions with{Layout=panelOptions.Layout with{Expanded=expand.Expanded||automatic,Team=teamOptions.Enabled}};
+                    if(eligible&&!hudHidden&&Input.GetKeyDown(settings.TeamPageKey))
+                    {
+                        if(classicStyle)classicTeam=!classicTeam;else teamPage=!teamPage;
+                        original.RestoreAll();
+                        string message=classicStyle?(classicTeam?"队友信息已显示。":"队友信息已隐藏。")
+                            :panelOptions.Layout.Style==HudLayoutStyle.DivisionV3?(teamPage?"队友铭牌已显示。":"队友铭牌已隐藏。")
+                            :(teamPage?"HUD切换到队伍页。":"HUD切换到个人页。");
+                        Plugin.Instance?.Log.LogInfo(message);
+                    }
+                    if(settings.ToggleHudVisibility)
+                    {
+                        if(eligible&&Input.GetKeyDown(settings.ExpandKey))
+                        {hudHidden=!hudHidden;Plugin.Instance?.Log.LogInfo(hudHidden?"第三人称HUD已隐藏。":"第三人称HUD已显示。");}
+                        expand=default;
+                        panelOptions=panelOptions with{Layout=panelOptions.Layout with{Enabled=panelOptions.Layout.Enabled&&!hudHidden,Expanded=true,Team=teamOptions.Enabled}};
+                    }
+                    else
+                    {
+                        expand=expand.Update(eligible,eligible&&Input.GetKey(settings.ExpandKey),settings.ToggleExpand);
+                        bool automatic=eligible&&lifecycle.TryGetContent(current,out var content)&&lifecycle.TryGetCollectionStatus(out var collection)
+                            &&lifecycle.TryGetStatus(out var life)&&HudPersonalMapper.WantsDetails(current,content,life.WorkEpoch,collection.ContentRevision,collection.Policy,personalOptions);
+                        panelOptions=panelOptions with{Layout=panelOptions.Layout with{Expanded=expand.Expanded||automatic,Team=teamOptions.Enabled}};
+                    }
+                    bool showTeam=classicStyle?classicTeam&&teamOptions.Enabled:teamPage&&teamOptions.Enabled;
+                    teamCapture?.SetTeamEnabled(showTeam&&!hudHidden);
+                    panelOptions=panelOptions with{Layout=panelOptions.Layout with{Streamlined=true,TeamPage=showTeam&&panelOptions.Layout.Style==HudLayoutStyle.Compact,Team=showTeam}};
                     if(!eligible){visuals.Reset();feedback.Reset();alerts.Reset();}
                     panel.Configure(panelOptions);
                     options=options with{Enabled=options.Enabled&&panelOptions.Layout.Enabled,Panel=panelOptions.Layout};
@@ -173,7 +203,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             var view=has&&statusAvailable?HudPersonalMapper.Map(current,snapshot,life.WorkEpoch,status.ContentRevision,policy,personalOptions,panelOptions.Layout.Expanded)
                 :HudPersonalMapper.Unavailable(personalOptions,status.Enabled?HudValueState.Unreadable:HudValueState.Unknown);
             view=feedback.Apply(current,snapshot.Header,view,personalOptions,policy);
-            view=view with{Team=HudTeamMapper.Map(current,snapshot,life.WorkEpoch,status.ContentRevision,policy,teamOptions,panelOptions.Layout.Expanded)};
+            view=view with{Team=panelOptions.Layout.Team?HudTeamMapper.Map(current,snapshot,life.WorkEpoch,status.ContentRevision,policy,teamOptions,true):default};
             view=view with{Scene=HudSceneMapper.Map(current,drawDisplay,snapshot,life.WorkEpoch,status.ContentRevision,policy,sceneOptions,panelOptions.Layout.Expanded)};
             panel.SetView(alerts.Apply(current,drawDisplay,has,snapshot,life.WorkEpoch,status.ContentRevision,policy,view,alertOptions,panelOptions.Behavior));
             panel.SetVisual(visuals.Update(current,has,snapshot,policy,panelOptions));
@@ -184,6 +214,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             long before=presentation.Diagnostics.ActualDraws;
             presentation.Draw();
             bool rendered=panel!=null&&presentation.Diagnostics.ActualDraws>before&&presentation.Diagnostics.LastDraw.FrameNumber==drawCurrent.FrameNumber;
+            if(rendered&&!reportedFirstDraw)
+            {reportedFirstDraw=true;Plugin.Instance?.Log.LogInfo($"第三人称HUD首次绘制成功；字体={panel.FontUsed}，完整详情={panelOptions.Layout.Expanded}。");}
             var fresh=drawCurrent with{NowSeconds=ThirdPersonApi.MonotonicSeconds};
             original.Apply(fresh,drawDisplay,rendered,rendered?Coverage(fresh):0);
             if(rendered&&lifecycle.TryGetStatus(out var life)){replacementFrame=fresh.FrameNumber;replacementView=fresh.CurrentView;replacementEpoch=life.WorkEpoch;}
@@ -231,7 +263,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         {
             double now = ThirdPersonApi.MonotonicSeconds;
             if (now - lastErrorAt < 5) return;
-            lastErrorAt = now; Plugin.Instance?.Log.LogWarning("HUD 暂停并清理，稍后重试：" + error.Message);
+            lastErrorAt = now; Plugin.Instance?.Log.LogWarning("HUD 暂停并清理，稍后重试：" + error);
         }
         public void OnDisable() => original?.RestoreAll();
         public void OnDestroy() => Stop();

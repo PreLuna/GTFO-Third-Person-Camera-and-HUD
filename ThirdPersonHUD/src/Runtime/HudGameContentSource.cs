@@ -12,7 +12,7 @@ using PreLuna.ThirdPersonHUD.Content;
 namespace PreLuna.ThirdPersonHUD.Runtime
 {
     // This adapter is the only content layer that dereferences game/Unity objects. Main thread only.
-    internal sealed partial class HudGameContentSource : IHudContentSource, IHudContentRefreshSource, IHudContentTransientSource, IHudTeamCaptureControl
+    internal sealed partial class HudGameContentSource : IHudContentSource, IHudContentRefreshSource, IHudContentTransientSource, IHudTeamCaptureControl, IHudContentFailureSource
     {
         readonly int thread = Environment.CurrentManagedThreadId;
         readonly Func<double> clock;
@@ -63,15 +63,22 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             ? default : new(Key(player), Id(player.Owner), player.PlayerSlotIndex);
         static LocalViewBinding Binding(LocalPlayerAgent local) => new(PlayerKey(local), Key(local.PlayerSyncModel),
             Key(local.FPSCamera?.m_camera), Id(Builder.CurrentFloor), (int)local.DimensionIndex);
+        public string LastCaptureFailure { get; private set; }="个人数据暂不可用。";
+        bool Rejected(string reason){LastCaptureFailure=reason;return false;}
         bool Current(in HudContentCaptureRequest request, out LocalPlayerAgent? local)
         {
             local = null;
             var context = readContext();
             if (!context.HasValue || request.WorkEpoch <= 0 || request.ContentRevision <= 0
-                || request.Origin.SampleFrame != context.Value.FrameNumber
-                || !HudEligibility.EvaluateData(context.Value, new(request.Origin, clock()), HudValidityPolicy.Default).Allowed) return false;
+                || request.Origin.SampleFrame != context.Value.FrameNumber) return Rejected("采集上下文、版本或帧号不匹配。");
+            // Use one fresh instant for both validation and the completed-at stamp.
+            // A later clock read compared against the earlier context time always looked like future data.
+            double now=clock();
+            var decision=HudEligibility.EvaluateData(context.Value with{NowSeconds=now}, new(request.Origin,now), HudValidityPolicy.Default);
+            if(!decision.Allowed)return Rejected("采集资格校验："+decision.Reason);
             local = PlayerManager.GetLocalPlayerAgent()?.TryCast<LocalPlayerAgent>();
-            return local != null && Binding(local) == request.Origin.View.Binding;
+            if(local==null||Binding(local)!=request.Origin.View.Binding)return Rejected("本机角色或绑定身份不匹配。");
+            return true;
         }
         public bool TryCapture(in HudContentCaptureRequest request, out HudContentSnapshot snapshot)
         {
@@ -149,7 +156,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 snapshot = new(new(HudContentContract.SchemaVersion, new(request.Origin, clock()), request.WorkEpoch, request.ContentRevision), personal) { Team = team, Scene = scene };
                 return true;
             }
-            catch { snapshot = default; return false; }
+            catch(Exception error) { snapshot = default; return Rejected(error.ToString()); }
         }
         static HudActionSnapshot Action(LocalPlayerAgent local, in HudContentCaptureRequest request, HudValueStamp stamp)
         {

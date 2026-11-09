@@ -4,6 +4,7 @@ using CullingSystem;
 using Player;
 using UnityEngine;
 using PreLuna.ThirdPerson.Core;
+using PreLuna.ThirdPerson.Body;
 
 namespace PreLuna.ThirdPerson.Runtime
 {
@@ -26,6 +27,12 @@ namespace PreLuna.ThirdPerson.Runtime
         internal readonly Vector3 OriginalPosition;
         internal readonly Vector3 OriginalForward;
         internal readonly string AudioHandling;
+        internal readonly bool BodyCameraLinked;
+        internal readonly int PinnedBodyTransforms;
+        internal readonly Vector3 BodyPosition,NeckPosition;
+        internal readonly BodyScaleSnapshot BodySizeBefore,BodySizeDuring;
+        internal Vector3 DisplayBodyPosition {get;private set;}
+        internal Vector3 DisplayNeckPosition {get;private set;}
         internal RenderScope(LocalPlayerAgent player,DisplayView view,CameraSettings settings,float? displayFov=null)
         {
             var fps=player.FPSCamera;camera=fps.m_camera;culler=fps.m_cullingCamera;
@@ -41,6 +48,29 @@ namespace PreLuna.ThirdPerson.Runtime
                 journal.Add(()=>{CameraManager.CullingPosition=cp;CameraManager.CullingDirection=cd;CameraManager.CullingFov=cf;C_Camera.Position=p;C_Camera.Forward=f;C_Camera.Right=r;C_Camera.Up=u;});
                 SavePose(camera.transform);
                 if(culler.transform.Pointer!=camera.transform.Pointer)SavePose(culler.transform);
+                // The native FPS rig can parent PlayerSyncModel below the display
+                // camera. Moving that parent must not drag the body/neck/ItemAlign.
+                var model=player.PlayerSyncModel;
+                var body=model==null?null:model.transform;
+                var neck=model?.m_neckBone;
+                BodyPosition=body==null?Vector3.zero:body.position;
+                NeckPosition=neck==null?Vector3.zero:neck.position;
+                BodySizeBefore=BodyScaleSnapshot.Capture(player.transform,body,player.AnimatorBody?.transform);
+                var pinned=new List<(Transform transform,Vector3 position,Quaternion rotation)>();
+                void PinLinked(Transform target)
+                {
+                    if(target==null||!(target.IsChildOf(camera.transform)||target.IsChildOf(culler.transform)))return;
+                    if(target.Pointer==camera.transform.Pointer||target.Pointer==culler.transform.Pointer)
+                        throw new InvalidOperationException("身体根与显示相机重合，不能安全固定模型");
+                    if(pinned.Exists(p=>target.IsChildOf(p.transform)))return;
+                    pinned.RemoveAll(p=>p.transform.IsChildOf(target));
+                    pinned.Add((target,target.position,target.rotation));
+                }
+                // Some rigs bind skin bones outside the graphics root. Protect
+                // their independent camera-linked branches without changing animation.
+                PinLinked(body);PinLinked(player.AnimatorBody?.transform);PinLinked(neck);PinLinked(model?.ItemAlign);
+                foreach(var pinnedPose in pinned)SavePose(pinnedPose.transform);
+                BodyCameraLinked=pinned.Count>0;PinnedBodyTransforms=pinned.Count;
                 float near=camera.nearClipPlane;int mask=camera.cullingMask;float fov=camera.fieldOfView;
                 journal.Add(()=>{if(camera!=null){camera.nearClipPlane=near;camera.cullingMask=mask;camera.fieldOfView=fov;}});
                 var listener=fps.AkAudioListener;var audio=listener==null?null:listener.transform;
@@ -52,6 +82,10 @@ namespace PreLuna.ThirdPerson.Runtime
                 var rotation=Quaternion.LookRotation(ConvertView.U(view.Forward),Vector3.up);
                 camera.transform.SetPositionAndRotation(ConvertView.U(view.Position),rotation);
                 if(culler.transform.Pointer!=camera.transform.Pointer)culler.transform.SetPositionAndRotation(camera.transform.position,rotation);
+                foreach(var pinnedPose in pinned)pinnedPose.transform.SetPositionAndRotation(pinnedPose.position,pinnedPose.rotation);
+                DisplayBodyPosition=body==null?Vector3.zero:body.position;
+                DisplayNeckPosition=neck==null?Vector3.zero:neck.position;
+                BodySizeDuring=BodyScaleSnapshot.Capture(player.transform,body,player.AnimatorBody?.transform);
                 camera.nearClipPlane=settings.NearClip;
                 if(displayFov.HasValue)camera.fieldOfView=displayFov.Value;
                 camera.cullingMask=(mask&~(1<<LayerManager.LAYER_FIRST_PERSON_ITEM))|(1<<LayerManager.LAYER_THIRD_PERSON_ITEM);

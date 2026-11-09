@@ -34,5 +34,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             Scan=scan.Value,Markers=markers.Value,Rescue=rescue.Value,Pings=pings.Value,Detected=detected.Value,ReplaceCountdown=replace.Value,
             MaximumMarkers=maximum.Value,CandidateLimit=candidates.Value,MaximumDistance=distance.Value,CardScale=scale.Value,CardWidth=width.Value,
             InteractionOffsetX=offset.Value,InteractionBottom=bottom.Value,ScreenMargin=margin.Value,MarkerCrosshairRadius=crosshair.Value}.Sanitized();
+        internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
+        internal string ControlSerialized(string key) => key == "scene" ? enabled.GetSerializedValue() : null;
     }
 }

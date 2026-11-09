@@ -1,5 +1,6 @@
 using BepInEx.Configuration;
 using PreLuna.ThirdPersonHUD.Panel;
+using UnityEngine;
 
 namespace PreLuna.ThirdPersonHUD.Runtime
 {
@@ -7,9 +8,11 @@ namespace PreLuna.ThirdPersonHUD.Runtime
     {
         readonly ConfigEntry<bool> enabled, details, cooperation, replace;
         readonly ConfigEntry<float> ammo, tool, mark;
+        readonly ConfigEntry<KeyCode> pageKey;
         internal HudTeamSettings(ConfigFile config)
         {
             var d = HudTeamOptions.Default;
+            pageKey=config.Bind("Team","PageKey",KeyCode.End,"队伍独立页开关，默认End；默认显示个人页，按一次进入队伍页、再按回个人页。Insert仍控制整个HUD。");
             enabled = config.Bind("Team", "Enabled", d.Enabled, "显示其他三名队员的摘要；关闭停止队伍采集并恢复对应原版读数。");
             details = config.Bind("Team", "Details", d.Details, "使用现有展开键显示游戏同步的弹药、工具比例和感染；不推测远端弹匣弹数。");
             cooperation = config.Bind("Team", "Cooperation", d.Cooperation, "突出救援、资源不足及实际收到的队员标记提示。");
@@ -19,5 +22,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             mark = config.Bind("Team", "MarkSeconds", d.MarkSeconds, new ConfigDescription("实际队员 Ping 事件的通知保留秒数；不延长原版标记。",new AcceptableValueRange<float>(.1f,10)));
         }
         internal HudTeamOptions Read() => new HudTeamOptions(enabled.Value, details.Value, cooperation.Value, replace.Value, ammo.Value, tool.Value, mark.Value).Sanitized();
+        internal KeyCode PageKey=>pageKey.Value;
+        internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
+        internal string ControlSerialized(string key) => key == "team" ? enabled.GetSerializedValue() : null;
     }
 }

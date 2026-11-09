@@ -7,7 +7,11 @@ namespace PreLuna.ThirdPerson.Core
     public enum FallbackReason { None, Disabled, NoPlayer, Focus, ControlTaken, UnsupportedState, Attack, MissingModel, Collision, Fault }
     public readonly record struct InputContext(long Player, long Owner, long Item, int Generation, bool CanControl);
     public readonly record struct LogicalView(int Frame, float FixedTime, int Generation, Vector3 Body, Vector3 Eye, Vector3 Forward);
-    public readonly record struct DisplayView(int Frame, Vector3 Position, Vector3 Forward, float Radius, bool IsThirdPerson, string Reason);
+    public readonly record struct DisplayView(int Frame, Vector3 Position, Vector3 Forward, float Radius, bool IsThirdPerson, string Reason)
+    {
+        public float? ClearanceDistance {get;init;}
+        public Vector3? ConstrainedPivot {get;init;}
+    }
     public readonly record struct AimSolution(int Frame, float FixedTime, Vector3 OriginalOrigin, Vector3 Intent, bool Adapted);
     public readonly record struct CameraSettings(float Distance, float Shoulder, float Height, float VerticalResponse,
         float ReleaseResponse, float Radius, float Skin, float MinimumDistance, float NearClip)

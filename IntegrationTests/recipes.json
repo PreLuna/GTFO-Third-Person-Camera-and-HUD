@@ -1,5 +1,185 @@
 [
   {
+    "Name": "PanelSettingsTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Panel/HudPanelOptions.cs",
+      "ThirdPersonHUD/src/Runtime/HudPanelSettings.cs",
+      "ThirdPersonHUD/tests/PanelSettingsTests.cs",
+      "ThirdPersonHUD/src/Runtime/HudDivisionSettings.cs",
+      "ThirdPersonHUD/src/Runtime/HudClassicSettings.cs"
+    ],
+    "Arguments": [
+      "out/tests/PanelSettingsTests.json"
+    ]
+  },
+  {
+    "Name": "CameraActionTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Camera/CameraStyle.cs",
+      "ThirdPerson/src/Camera/CameraMotionSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraSolver.cs",
+      "ThirdPerson/src/Camera/CameraKinematics.cs",
+      "ThirdPerson/src/Camera/CameraTransitionSolver.cs",
+      "ThirdPerson/src/Camera/CameraActionFeedbackSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraRefinement.cs",
+      "ThirdPerson/tests/CameraStageTestSupport.cs",
+      "ThirdPerson/tests/CameraActionTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraActionTests.json"
+    ]
+  },
+  {
+    "Name": "SpatialCameraTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Camera/CameraStyle.cs",
+      "ThirdPerson/src/Camera/CameraMotionSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraSolver.cs",
+      "ThirdPerson/src/Camera/CameraKinematics.cs",
+      "ThirdPerson/src/Camera/CameraTransitionSolver.cs",
+      "ThirdPerson/src/Camera/CameraActionFeedbackSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraRefinement.cs",
+      "ThirdPerson/tests/CameraStageTestSupport.cs",
+      "ThirdPerson/tests/SpatialCameraTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/SpatialCameraTests.json"
+    ]
+  },
+  {
+    "Name": "CameraTransitionTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Camera/CameraStyle.cs",
+      "ThirdPerson/src/Camera/CameraMotionSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraSolver.cs",
+      "ThirdPerson/src/Camera/CameraKinematics.cs",
+      "ThirdPerson/src/Camera/CameraTransitionSolver.cs",
+      "ThirdPerson/src/Camera/CameraActionFeedbackSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraRefinement.cs",
+      "ThirdPerson/tests/CameraStageTestSupport.cs",
+      "ThirdPerson/tests/CameraTransitionTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraTransitionTests.json",
+      "ThirdPerson/tests/Camera059Baseline.json"
+    ]
+  },
+  {
+    "Name": "CameraFeedbackTests",
+    "Sources": [
+      "ThirdPerson/src/Camera/ObservationMovement.cs",
+      "ThirdPerson/src/Camera/CameraObservationFeedback.cs",
+      "ThirdPerson/tests/CameraFeedbackTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraFeedbackTests.json"
+    ]
+  },
+  {
+    "Name": "CameraObservationTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Camera/CameraOrientationSolver.cs",
+      "ThirdPerson/src/Camera/ObservationMovement.cs",
+      "ThirdPerson/src/Camera/CameraObservationFeedback.cs",
+      "ThirdPerson/src/Runtime/CameraInputAdapter.cs",
+      "ThirdPerson/src/Runtime/ThirdPersonObservation.cs",
+      "ThirdPerson/src/Runtime/ThirdPersonObservationFeedback.cs",
+      "ThirdPerson/tests/CameraObservationTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraObservationTests.json"
+    ]
+  },
+  {
+    "Name": "CameraOrientationTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Core/AimSolver.cs",
+      "ThirdPerson/src/Camera/CameraOrientationSolver.cs",
+      "ThirdPerson/src/Runtime/CameraInputAdapter.cs",
+      "ThirdPerson/tests/CameraOrientationTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraOrientationTests.json"
+    ]
+  },
+  {
+    "Name": "CameraMotionTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Camera/CameraStyle.cs",
+      "ThirdPerson/src/Camera/CameraMotionSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraSolver.cs",
+      "ThirdPerson/src/Camera/CameraKinematics.cs",
+      "ThirdPerson/src/Camera/CameraTransitionSolver.cs",
+      "ThirdPerson/src/Camera/CameraActionFeedbackSolver.cs",
+      "ThirdPerson/src/Collision/SpatialCameraRefinement.cs",
+      "ThirdPerson/tests/CameraMotionTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/CameraMotionTests.json",
+      "ThirdPerson/tests/Camera054Baseline.json"
+    ]
+  },
+  {
+    "Name": "NativeHoldingTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Core/RestoreJournal.cs",
+      "ThirdPerson/src/Core/ResourceLedger.cs",
+      "ThirdPerson/src/Body/WorldWeaponView.cs",
+      "ThirdPerson/src/Body/NativeBodyHolding.cs",
+      "ThirdPerson/src/Body/NativeBodyIk.cs",
+      "ThirdPerson/tests/BodyRenderMocks.cs",
+      "ThirdPerson/tests/NativeHoldingTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/NativeHoldingTests.json"
+    ]
+  },
+  {
+    "Name": "BodyPoseTests",
+    "Sources": [
+      "ThirdPerson/src/Body/BodyScaleSnapshot.cs",
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Core/TwoBonePoseSolver.cs",
+      "ThirdPerson/src/Core/RestoreJournal.cs",
+      "ThirdPerson/src/Core/ResourceLedger.cs",
+      "ThirdPerson/src/Body/LocalBodyPoseScope.cs",
+      "ThirdPerson/src/Runtime/RenderScope.cs",
+      "ThirdPerson/tests/BodyRenderMocks.cs",
+      "ThirdPerson/tests/BodyPoseTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/BodyPoseTests.json"
+    ]
+  },
+  {
+    "Name": "BodyRenderTests",
+    "Sources": [
+      "ThirdPerson/src/Body/LocalBodyScale.cs",
+      "ThirdPerson/src/Body/BodyScaleSnapshot.cs",
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Core/RestoreJournal.cs",
+      "ThirdPerson/src/Core/ResourceLedger.cs",
+      "ThirdPerson/src/Core/BodyOcclusionPolicy.cs",
+      "ThirdPerson/src/Body/LocalBodyView.cs",
+      "ThirdPerson/src/Body/LocalBodyOcclusion.cs",
+      "ThirdPerson/src/Body/FirstPersonLayerView.cs",
+      "ThirdPerson/src/Body/WorldWeaponView.cs",
+      "ThirdPerson/src/Runtime/RenderScope.cs",
+      "ThirdPerson/tests/BodyRenderMocks.cs",
+      "ThirdPerson/tests/BodyRenderTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/BodyRenderTests.json"
+    ]
+  },
+  {
     "Name": "ContractTests",
     "Sources": [
       "Shared/ThirdPerson.Contracts/src/HudEligibility.cs",
@@ -140,7 +320,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/CollectionPipelineTests.cs"
+      "ThirdPersonHUD/tests/CollectionPipelineTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/CollectionPipelineTests.json"
@@ -193,7 +378,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/LifecycleTests.cs"
+      "ThirdPersonHUD/tests/LifecycleTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/LifecycleTests.json"
@@ -246,7 +436,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/WorkBudgetTests.cs"
+      "ThirdPersonHUD/tests/WorkBudgetTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/WorkBudgetTests.json"
@@ -299,7 +494,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/AsyncExecutionTests.cs"
+      "ThirdPersonHUD/tests/AsyncExecutionTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/AsyncExecutionTests.json"
@@ -352,7 +552,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "IntegrationTests/Scenarios/IntegrationScenarios.cs"
+      "IntegrationTests/Scenarios/IntegrationScenarios.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/IntegrationScenarios.json"
@@ -405,7 +610,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/PanelTests.cs"
+      "ThirdPersonHUD/tests/PanelTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/PanelTests.json"
@@ -458,7 +668,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/PanelRuntimeTests.cs"
+      "ThirdPersonHUD/tests/PanelRuntimeTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/PanelRuntimeTests.json"
@@ -511,7 +726,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/PersonalReadoutTests.cs"
+      "ThirdPersonHUD/tests/PersonalReadoutTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/PersonalReadoutTests.json"
@@ -564,7 +784,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/PersonalRuntimeTests.cs"
+      "ThirdPersonHUD/tests/PersonalRuntimeTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/PersonalRuntimeTests.json"
@@ -617,7 +842,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/AlertTests.cs"
+      "ThirdPersonHUD/tests/AlertTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/AlertTests.json"
@@ -670,7 +900,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/ReplacementTests.cs"
+      "ThirdPersonHUD/tests/ReplacementTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/ReplacementTests.json"
@@ -723,7 +958,12 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/TeamTests.cs"
+      "ThirdPersonHUD/tests/TeamTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/TeamTests.json"
@@ -776,10 +1016,175 @@
       "ThirdPersonHUD/tests/TeamTestData.cs",
       "ThirdPersonHUD/tests/SceneTestData.cs",
       "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "ThirdPersonHUD/tests/SceneTests.cs"
+      "ThirdPersonHUD/tests/SceneTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
     ],
     "Arguments": [
       "out/tests/SceneTests.json"
+    ]
+  },
+  {
+    "Name": "DivisionHudTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Content/HudCollectionContracts.cs",
+      "ThirdPersonHUD/src/Content/HudContentContracts.cs",
+      "ThirdPersonHUD/src/Content/HudContentRules.cs",
+      "ThirdPersonHUD/src/Content/HudInformationCatalog.cs",
+      "ThirdPersonHUD/src/Content/HudSceneContracts.cs",
+      "ThirdPersonHUD/src/Content/HudTeamContracts.cs",
+      "Shared/ThirdPerson.Contracts/src/HudEligibility.cs",
+      "Shared/ThirdPerson.Contracts/src/ThirdPersonContracts.cs",
+      "ThirdPersonHUD/src/Core/HudBackgroundExecutor.cs",
+      "ThirdPersonHUD/src/Core/HudComputationContracts.cs",
+      "ThirdPersonHUD/src/Core/HudComputationRunner.cs",
+      "ThirdPersonHUD/src/Core/HudContentPipeline.cs",
+      "ThirdPersonHUD/src/Core/HudDataPipeline.cs",
+      "ThirdPersonHUD/src/Core/HudLifecycle.cs",
+      "ThirdPersonHUD/src/Core/HudLifecycleContracts.cs",
+      "ThirdPersonHUD/src/Core/HudMainThreadExecutor.cs",
+      "ThirdPersonHUD/src/Core/HudOriginalHud.cs",
+      "ThirdPersonHUD/src/Core/HudPresentationDiagnostics.cs",
+      "ThirdPersonHUD/src/Core/HudProjection.cs",
+      "ThirdPersonHUD/src/Core/HudWorkContracts.cs",
+      "ThirdPersonHUD/src/Panel/HudAlertOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudAlerts.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelVisuals.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalFeedback.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalReadout.cs",
+      "ThirdPersonHUD/src/Panel/HudReplacement.cs",
+      "ThirdPersonHUD/src/Panel/HudScene.cs",
+      "ThirdPersonHUD/src/Panel/HudSceneOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudTeam.cs",
+      "ThirdPersonHUD/src/Panel/HudTeamOptions.cs",
+      "ThirdPersonHUD/src/Runtime/HolographicHud.cs",
+      "ThirdPersonHUD/src/Runtime/HudRuntime.cs",
+      "ThirdPersonHUD/src/Runtime/PlaceholderHud.cs",
+      "ThirdPerson/src/Bridge/ThirdPersonViewProvider.cs",
+      "ThirdPersonHUD/tests/PanelTestData.cs",
+      "ThirdPersonHUD/tests/PersonalTestData.cs",
+      "ThirdPersonHUD/tests/OriginalTestData.cs",
+      "ThirdPersonHUD/tests/TeamTestData.cs",
+      "ThirdPersonHUD/tests/SceneTestData.cs",
+      "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
+      "ThirdPersonHUD/tests/DivisionHudTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+    ],
+    "Arguments": [
+      "out/tests/DivisionHudTests.json"
+    ]
+  },
+  {
+    "Name": "ClassicHudTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Content/HudCollectionContracts.cs",
+      "ThirdPersonHUD/src/Content/HudContentContracts.cs",
+      "ThirdPersonHUD/src/Content/HudContentRules.cs",
+      "ThirdPersonHUD/src/Content/HudInformationCatalog.cs",
+      "ThirdPersonHUD/src/Content/HudSceneContracts.cs",
+      "ThirdPersonHUD/src/Content/HudTeamContracts.cs",
+      "Shared/ThirdPerson.Contracts/src/HudEligibility.cs",
+      "Shared/ThirdPerson.Contracts/src/ThirdPersonContracts.cs",
+      "ThirdPersonHUD/src/Core/HudBackgroundExecutor.cs",
+      "ThirdPersonHUD/src/Core/HudComputationContracts.cs",
+      "ThirdPersonHUD/src/Core/HudComputationRunner.cs",
+      "ThirdPersonHUD/src/Core/HudContentPipeline.cs",
+      "ThirdPersonHUD/src/Core/HudDataPipeline.cs",
+      "ThirdPersonHUD/src/Core/HudLifecycle.cs",
+      "ThirdPersonHUD/src/Core/HudLifecycleContracts.cs",
+      "ThirdPersonHUD/src/Core/HudMainThreadExecutor.cs",
+      "ThirdPersonHUD/src/Core/HudOriginalHud.cs",
+      "ThirdPersonHUD/src/Core/HudPresentationDiagnostics.cs",
+      "ThirdPersonHUD/src/Core/HudProjection.cs",
+      "ThirdPersonHUD/src/Core/HudWorkContracts.cs",
+      "ThirdPersonHUD/src/Panel/HudAlertOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudAlerts.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPanelVisuals.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalFeedback.cs",
+      "ThirdPersonHUD/src/Panel/HudPersonalReadout.cs",
+      "ThirdPersonHUD/src/Panel/HudReplacement.cs",
+      "ThirdPersonHUD/src/Panel/HudScene.cs",
+      "ThirdPersonHUD/src/Panel/HudSceneOptions.cs",
+      "ThirdPersonHUD/src/Panel/HudTeam.cs",
+      "ThirdPersonHUD/src/Panel/HudTeamOptions.cs",
+      "ThirdPersonHUD/src/Runtime/HolographicHud.cs",
+      "ThirdPersonHUD/src/Runtime/HudRuntime.cs",
+      "ThirdPersonHUD/src/Runtime/PlaceholderHud.cs",
+      "ThirdPerson/src/Bridge/ThirdPersonViewProvider.cs",
+      "ThirdPersonHUD/tests/PanelTestData.cs",
+      "ThirdPersonHUD/tests/PersonalTestData.cs",
+      "ThirdPersonHUD/tests/OriginalTestData.cs",
+      "ThirdPersonHUD/tests/TeamTestData.cs",
+      "ThirdPersonHUD/tests/SceneTestData.cs",
+      "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
+      "ThirdPersonHUD/tests/ClassicHudTests.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+    ],
+    "Arguments": [
+      "out/tests/ClassicHudTests.json"
+    ]
+  },
+  {
+    "Name": "HudConfigFileStoreTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Control/HudConfigFileStore.cs",
+      "ThirdPersonHUD/tests/HudConfigFileStoreTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/HudConfigFileStoreTests.json"
+    ]
+  },
+  {
+    "Name": "HudControlStateTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Control/HudControlModels.cs",
+      "ThirdPersonHUD/src/Control/HudConfigFileStore.cs",
+      "ThirdPersonHUD/src/Control/HudControlState.cs",
+      "ThirdPersonHUD/tests/HudControlStateTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/HudControlStateTests.json"
+    ]
+  },
+  {
+    "Name": "ThirdPersonControlFileStoreTests",
+    "Sources": [
+      "ThirdPerson/src/Control/ThirdPersonControlFileStore.cs",
+      "ThirdPerson/tests/ThirdPersonControlFileStoreTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/ThirdPersonControlFileStoreTests.json"
+    ]
+  },
+  {
+    "Name": "ThirdPersonControlStateTests",
+    "Sources": [
+      "ThirdPerson/src/Control/ThirdPersonControlModels.cs",
+      "ThirdPerson/src/Control/ThirdPersonControlFileStore.cs",
+      "ThirdPerson/src/Control/ThirdPersonControlState.cs",
+      "ThirdPerson/tests/ThirdPersonControlStateTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/ThirdPersonControlStateTests.json"
     ]
   }
 ]

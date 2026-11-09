@@ -7,14 +7,22 @@ namespace PreLuna.ThirdPersonHUD.Panel
 {
     // Pixel bounds use the provider's bottom-left origin. Drawing backends convert only at their boundary.
     public readonly record struct HudPanelPlacement(PixelViewport Bounds, float Scale, bool Expanded, bool Aiming, float Side)
-    { public bool IsValid => Bounds.Width > 0 && Bounds.Height > 0 && float.IsFinite(Scale) && Scale >= .55f; }
+    { public PixelViewport Viewport { get; init; }
+        public HudPlaneTransform Plane { get; init; }
+        // Character-anchored radial center in absolute bottom-left viewport pixels. Full-viewport
+        // classic layouts leave it at zero; only Radial reads it.
+        public System.Numerics.Vector2 StyleOrigin { get; init; }
+        public bool IsValid => Bounds.Width > 0 && Bounds.Height > 0 && float.IsFinite(Scale) && Scale >= .55f; }
 
     public sealed class HudPanelMotion
     {
         ThirdPersonViewState identity;
         double at = double.NaN;
         float side;
-        public void Reset() { identity = default; at = double.NaN; side = 0; }
+        Vector2 divisionOrigin, radialOrigin;
+        HudPanelLayoutOptions previousOptions;
+        bool divisionValid, radialValid;
+        public void Reset() { identity = default; at = double.NaN; side = 0; divisionValid=false; radialValid=false; }
         public bool TryPlace(in ThirdPersonDisplayFrame display, in HudAnchorSpec anchor, out HudPlacement placement)
         {
             var options = anchor.Panel.Sanitized();
@@ -27,18 +35,49 @@ namespace PreLuna.ThirdPersonHUD.Panel
             float dt = reset ? 0 : (float)(display.CapturedAtSeconds-at);
             side = reset || options.FollowSeconds <= 0 ? target : side+(target-side)*(1-MathF.Exp(-dt/options.FollowSeconds));
             at=display.CapturedAtSeconds; identity=display.View;
-            return HudPanelProjection.TryPlace(display,options,side,out placement);
+            if(!HudPanelProjection.TryPlace(display,options,side,out placement)){divisionValid=false;radialValid=false;return false;}
+            if(options.Style==HudLayoutStyle.DivisionV3)
+            {
+                radialValid=false;
+                var b=placement.Panel.Bounds;var next=new Vector2(b.X,b.Y);
+                if(!reset&&divisionValid&&options==previousOptions&&options.Division.FollowSeconds>0)
+                {
+                    var smooth=Vector2.Lerp(divisionOrigin,next,1-MathF.Exp(-dt/options.Division.FollowSeconds));
+                    var candidate=new PixelViewport(smooth.X,smooth.Y,b.Width,b.Height);
+                    if(HudDivisionProjection.Safe(candidate,display.Camera.Viewport,options,placement.Panel.Scale))next=smooth;
+                }
+                divisionOrigin=next;divisionValid=true;
+                placement=placement with{Panel=placement.Panel with{Bounds=new(next.X,next.Y,b.Width,b.Height)},PixelCenter=new(next.X+b.Width*.5f,next.Y+b.Height*.5f)};
+            }
+            else if(options.Style==HudLayoutStyle.Radial)
+            {
+                divisionValid=false;
+                var next=placement.Panel.StyleOrigin;
+                if(!reset&&radialValid&&options==previousOptions&&options.Classic.FollowSeconds>0)
+                {
+                    var smooth=Vector2.Lerp(radialOrigin,next,1-MathF.Exp(-dt/options.Classic.FollowSeconds));
+                    if(HudClassicProjection.Safe(smooth,display.Camera.Viewport,options,placement.Panel.Scale))next=smooth;
+                }
+                radialOrigin=next;radialValid=true;
+                placement=placement with{Panel=placement.Panel with{StyleOrigin=next},PixelCenter=next};
+            }
+            else {divisionValid=false;radialValid=false;}
+            previousOptions=options;
+            return true;
         }
     }
     public static class HudPanelProjection
     {
         public const float CompactHeight = 356, ExpandedHeight = 568;
+        public const float PersonalMaximumHeight = 480;
         public static bool TryPlace(in ThirdPersonDisplayFrame display, in HudPanelLayoutOptions raw, float sideBlend, out HudPlacement placement)
         {
             placement=default;
             var o=raw.Sanitized(); var rect=display.Camera.Viewport;
             if(!o.Enabled || !float.IsFinite(sideBlend) || !Finite(rect.X) || !Finite(rect.Y) || !Finite(rect.Width) || !Finite(rect.Height)
                 || rect.Width<=0 || rect.Height<=0) return false;
+            if(o.Style==HudLayoutStyle.DivisionV3)return HudDivisionProjection.TryPlace(display,o,sideBlend,out placement);
+            if(o.Style is HudLayoutStyle.FourCorner or HudLayoutStyle.Radial)return HudClassicProjection.TryPlace(display,o,sideBlend,out placement);
             sideBlend=Math.Clamp(sideBlend,-1,1);
             var right=Vector3.Transform(Vector3.UnitX,display.Camera.Pose.Rotation);
             var world=display.BodyPose.Position+Vector3.UnitY*o.AnchorHeight+right*(o.AnchorSide*sideBlend);
@@ -50,8 +89,8 @@ namespace PreLuna.ThirdPersonHUD.Panel
             bool aim=display.View.Mode==ThirdPersonMode.ShoulderAim;
             bool expanded=o.Expanded;
             float scale=o.Scale*Math.Clamp(rect.Height/1080f,.75f,2f)*(aim?o.AimScale:1);
-            float baseHeight=expanded?ExpandedHeight:CompactHeight;
-            if(o.Team)baseHeight+=expanded?HudTeamDrawing.ExpandedHeight:HudTeamDrawing.CompactHeight;
+            float baseHeight=o.TeamPage?HudTeamDrawing.ExpandedHeight:o.Streamlined?PersonalMaximumHeight:expanded?ExpandedHeight:CompactHeight;
+            if(o.Team&&!o.TeamPage)baseHeight+=expanded?HudTeamDrawing.ExpandedHeight:HudTeamDrawing.CompactHeight;
             scale=Math.Min(scale,Math.Min((rect.Width-2*o.ScreenMargin)/o.Width,(rect.Height-2*o.ScreenMargin)/baseHeight));
             if(!Finite(scale)||scale<.55f) return false;
             float w=o.Width*scale,h=baseHeight*scale;

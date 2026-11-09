@@ -18,7 +18,14 @@ namespace PreLuna.ThirdPerson.Collision
         double safeSince=double.NaN,lastTime=double.NaN;
         public bool Blocked=>blocked;
         public void Reset(){blocked=false;safeSince=double.NaN;lastTime=double.NaN;}
-        public bool Evaluate(bool safe,float distance,float minimum,double now,SpatialSettings options)
+        public bool Evaluate(bool safe,float distance,float minimum,double now,SpatialSettings options,bool commit=true)
+        {
+            if(commit)return Advance(safe,distance,minimum,now,options);
+            var saved=(blocked,safeSince,lastTime);
+            try{return Advance(safe,distance,minimum,now,options);}
+            finally{(blocked,safeSince,lastTime)=saved;}
+        }
+        bool Advance(bool safe,float distance,float minimum,double now,SpatialSettings options)
         {
             options=options.Sanitized();
             if(!double.IsFinite(now)){blocked=true;safeSince=double.NaN;return false;}
@@ -32,7 +39,7 @@ namespace PreLuna.ThirdPerson.Collision
             blocked=false;safeSince=double.NaN;return true;
         }
     }
-    public sealed class SpatialCameraSolver
+    public sealed partial class SpatialCameraSolver
     {
         bool initialized;
         Vector3 previous;
@@ -40,15 +47,23 @@ namespace PreLuna.ThirdPerson.Collision
         double clearSince=double.NaN,sideClearSince=double.NaN;
         public float CompressedShoulder=>side;
         public float Distance=>distance;
-        public void Reset(){initialized=false;distance=0;side=0;clearSince=double.NaN;sideClearSince=double.NaN;}
-        public DisplayView Solve(int frame,RigTarget rig,float dt,double now,float aspect,CameraSettings settings,SpatialSettings options,ICameraWorld world)
+        public void Reset(){initialized=false;distance=0;side=0;clearSince=double.NaN;sideClearSince=double.NaN;ResetRefinement();}
+        DisplayView Fail(int frame,RigTarget rig,float radius,string reason){Reset();return new(frame,rig.Pivot,rig.Forward,radius,false,reason);}
+        DisplayView SolveLegacy(int frame,RigTarget rig,float dt,double now,float aspect,CameraSettings settings,SpatialSettings options,ICameraWorld world)
         {
             options=options.Sanitized();settings=settings.Sanitized();
             float radius=Math.Max(settings.Radius,ViewMath.NearRadius(settings.NearClip,rig.VerticalFov,aspect)+settings.Skin);
-            DisplayView Fail(string reason){Reset();return new(frame,rig.Pivot,rig.Forward,radius,false,reason);}
+
             if(!ViewMath.Finite(rig.Pivot)||!ViewMath.Finite(rig.Forward)||!float.IsFinite(rig.Distance)||!float.IsFinite(rig.Shoulder)
-                ||!float.IsFinite(aspect)||aspect<=0||!float.IsFinite(rig.VerticalFov)||!double.IsFinite(now))return Fail("invalid-view");
-            if(world.Overlap(rig.Pivot,radius))return Fail("pivot-overlap");
+                ||!float.IsFinite(aspect)||aspect<=0||!float.IsFinite(rig.VerticalFov)||!double.IsFinite(now))return Fail(frame,rig,radius,"invalid-view");
+            if(rig.PivotOrigin is Vector3 origin)
+            {
+                if(!ViewMath.Finite(origin))return Fail(frame,rig,radius,"invalid-pivot-origin");
+                if(world.Overlap(origin,radius))return Fail(frame,rig,radius,"pivot-origin-overlap");
+                var shift=rig.Pivot-origin;float lengthToPivot=shift.Length();
+                if(lengthToPivot>.001f&&world.Sweep(origin,shift/lengthToPivot,lengthToPivot,radius,out _))return Fail(frame,rig,radius,"pivot-path-blocked");
+            }
+            if(world.Overlap(rig.Pivot,radius))return Fail(frame,rig,radius,"pivot-overlap");
             var forward=ViewMath.Unit(rig.Forward,Vector3.UnitZ);
             var right=Vector3.Cross(Vector3.UnitY,ViewMath.Unit(new(forward.X,0,forward.Z),Vector3.UnitZ));
             float allowedSide=Math.Abs(rig.Shoulder);
@@ -63,11 +78,11 @@ namespace PreLuna.ThirdPerson.Collision
                 if(now-sideClearSince>=options.ReleaseDelay)side+=(desiredSide-side)*ViewMath.Blend(settings.ReleaseResponse,dt);
             }
             var path=-forward*rig.Distance+right*side;
-            float length=path.Length();if(length<.001f)return Fail("empty-path");
+            float length=path.Length();if(length<.001f)return Fail(frame,rig,radius,"empty-path");
             var direction=path/length;
             float limit=length;
             if(world.Sweep(rig.Pivot,direction,length,radius,out float hit))limit=Math.Max(0,hit-settings.Skin);
-            if(limit<settings.MinimumDistance)return Fail("space-too-narrow");
+            if(limit<settings.MinimumDistance)return Fail(frame,rig,radius,"space-too-narrow");
             float next;
             if(!initialized||limit<distance){next=limit;clearSince=double.NaN;}
             else
@@ -82,12 +97,12 @@ namespace PreLuna.ThirdPerson.Collision
             {
                 // A moving door can engulf the old camera. Do not sweep out of an overlap.
                 float travelRadius=Math.Max(radius,previousRadius);
-                if(world.Overlap(previous,travelRadius))return Fail("previous-overlap");
+                if(world.Overlap(previous,travelRadius))return Fail(frame,rig,radius,"previous-overlap");
                 var travel=position-previous;float travelLength=travel.Length();
                 if(travelLength>.001f&&world.Sweep(previous,travel/travelLength,travelLength,travelRadius,out _))
-                    return Fail("transition-path-blocked");
+                    return Fail(frame,rig,radius,"transition-path-blocked");
             }
-            if(world.Overlap(position,radius))return Fail("final-overlap");
+            if(world.Overlap(position,radius))return Fail(frame,rig,radius,"final-overlap");
             initialized=true;distance=next;previous=position;previousRadius=radius;
             return new(frame,position,forward,radius,true,"third-person");
         }
