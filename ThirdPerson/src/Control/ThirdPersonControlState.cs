@@ -6,7 +6,7 @@ namespace PreLuna.ThirdPerson.Control
     internal sealed class ThirdPersonControlState
     {
         internal const string TargetId = "PreLuna.ThirdPerson";
-        internal const string ControlVersion = "0.6.3";
+        internal const string ControlVersion = "0.6.32";
 
         internal static readonly IReadOnlyList<ThirdPersonControlSetting> Definitions = new[]
         {
@@ -14,9 +14,18 @@ namespace PreLuna.ThirdPerson.Control
             new ThirdPersonControlSetting("shoulder", "右肩偏移", ThirdPersonControlKind.Number, ThirdPersonControlValue.Number(.48), "镜头", "右肩偏移", -1, 1),
             new ThirdPersonControlSetting("height", "支点高度偏移", ThirdPersonControlKind.Number, ThirdPersonControlValue.Number(.1), "镜头", "支点高度偏移", -.35, .6),
             new ThirdPersonControlSetting("shoulderDistance", "肩射距离", ThirdPersonControlKind.Number, ThirdPersonControlValue.Number(1.35), "瞄准", "肩射距离", .6, 3),
-            new ThirdPersonControlSetting("leftShoulder", "左肩", ThirdPersonControlKind.Boolean, ThirdPersonControlValue.Boolean(false), "风格", "左肩")
+            new ThirdPersonControlSetting("leftShoulder", "左肩", ThirdPersonControlKind.Boolean, ThirdPersonControlValue.Boolean(false), "风格", "左肩"),
+            new ThirdPersonControlSetting("key.toggle", "切换第三人称", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(287), "按键", "开关", 0, 509),
+            new ThirdPersonControlSetting("key.reset", "恢复镜头默认", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(288), "按键", "恢复默认", 0, 509),
+            new ThirdPersonControlSetting("key.snapshot", "诊断快照", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(289), "按键", "诊断快照", 0, 509),
+            new ThirdPersonControlSetting("key.swapShoulder", "左右换肩", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(290), "按键", "左右换肩", 0, 509),
+            new ThirdPersonControlSetting("key.cyclePreset", "切换镜头风格", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(291), "按键", "切换风格", 0, 509),
+            new ThirdPersonControlSetting("key.capture", "性能采集", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(292), "按键", "性能采集", 0, 509),
+            new ThirdPersonControlSetting("key.pointer", "指向调试覆盖层", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(293), "按键", "指向覆盖层", 0, 509),
+            new ThirdPersonControlSetting("key.observe", "按住站定观察", ThirdPersonControlKind.Integer, ThirdPersonControlValue.Integer(307), "镜头·C2", "观察按键", 0, 509)
         };
 
+        readonly Func<int, bool> validKey;
         readonly string path;
         readonly Func<string, ThirdPersonControlValue> readSaved;
         readonly Action<string, ThirdPersonControlValue> writeSaved;
@@ -34,8 +43,9 @@ namespace PreLuna.ThirdPerson.Control
             Action<string, ThirdPersonControlValue> writeSaved,
             Func<string, string> serialize,
             Func<bool> getAutoSave = null,
-            Action<bool> setAutoSave = null)
+            Action<bool> setAutoSave = null, Func<int, bool> validKey = null)
         {
+            this.validKey = validKey;
             this.path = path ?? throw new ArgumentNullException(nameof(path));
             this.readSaved = readSaved ?? throw new ArgumentNullException(nameof(readSaved));
             this.writeSaved = writeSaved ?? throw new ArgumentNullException(nameof(writeSaved));
@@ -53,6 +63,20 @@ namespace PreLuna.ThirdPerson.Control
         }
 
         internal string Revision => revision;
+
+        // Call only after a known successful BepInEx automatic save. Normal camera
+        // hotkeys also write fields outside Definitions (Enabled, diagnostics, etc.).
+        // Those writes must advance the file revision even when no managed value changed.
+        internal void ObserveAutomaticSave()
+        {
+            var currentHash = ThirdPersonControlFileStore.Capture(path);
+            if (!string.Equals(fileHash, currentHash, StringComparison.Ordinal))
+            {
+                fileHash = currentHash;
+                BumpRevision();
+            }
+            RefreshSaved(false);
+        }
 
         internal ThirdPersonControlSnapshot ReadSnapshot()
         {
@@ -142,6 +166,9 @@ namespace PreLuna.ThirdPerson.Control
                 }
 
                 var issue = definition.Validate(pair.Value);
+                if (issue == null && pair.Key.StartsWith("key.", StringComparison.Ordinal) &&
+                    pair.Value.TryGetInteger(out var code) && validKey != null && !validKey(code))
+                    issue = new ThirdPersonControlIssue(pair.Key, "不是有效的按键");
                 if (issue != null) issues.Add(issue);
             }
 

@@ -1239,5 +1239,29 @@
     "Arguments": [
       "out/tests/PointerProjectionTests.json"
     ]
+  },
+  {
+    "Name": "ThirdPersonKeybindControlTests",
+    "Sources": [
+      "ThirdPerson/src/Control/ThirdPersonControlModels.cs",
+      "ThirdPerson/src/Control/ThirdPersonControlFileStore.cs",
+      "ThirdPerson/src/Control/ThirdPersonControlState.cs",
+      "ThirdPerson/tests/KeybindControlTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/ThirdPersonKeybindControlTests.json"
+    ]
+  },
+  {
+    "Name": "HudKeybindControlTests",
+    "Sources": [
+      "ThirdPersonHUD/src/Control/HudControlModels.cs",
+      "ThirdPersonHUD/src/Control/HudConfigFileStore.cs",
+      "ThirdPersonHUD/src/Control/HudControlState.cs",
+      "ThirdPersonHUD/tests/KeybindControlTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/HudKeybindControlTests.json"
+    ]
   }
 ]

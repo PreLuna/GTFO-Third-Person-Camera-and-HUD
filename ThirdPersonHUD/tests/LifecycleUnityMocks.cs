@@ -186,3 +186,9 @@ namespace UnityEngine
     }
 }
 public static class GuiManager { public static UnityEngine.InteractionGuiLayer InteractionLayer; }
+
+public enum eFocusState { FPS, Menu }
+public static class InputMapper { public static bool PlayerHasFocus = true; }
+public static class FocusStateManager { public static eFocusState CurrentState = eFocusState.FPS; }
+public static class PlayerChatManager { public static bool InChatMode; }
+namespace UnityEngine { public static class Application { public static bool isFocused = true; } }

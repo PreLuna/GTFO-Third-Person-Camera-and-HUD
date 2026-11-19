@@ -7,7 +7,7 @@ namespace PreLuna.ThirdPersonHUD.Control
     internal sealed class HudControlState
     {
         internal const string TargetId = "PreLuna.ThirdPersonHUD";
-        internal const string ControlVersion = "0.15.2";
+        internal const string ControlVersion = "0.15.3";
 
         internal static readonly IReadOnlyList<HudControlSetting> Definitions = new[]
         {
@@ -19,9 +19,14 @@ namespace PreLuna.ThirdPersonHUD.Control
             new HudControlSetting("shortPrompt", "1b短提示", HudControlKind.Boolean, HudControlValue.Boolean(false), "Scene", "ShortPrompt"),
             new HudControlSetting("hideNativePrompt", "1b隐藏原版提示", HudControlKind.Boolean, HudControlValue.Boolean(false), "Scene", "HideNativePrompt"),
             new HudControlSetting("panelScale", "面板缩放", HudControlKind.Number, HudControlValue.Number(1), "Panel.Layout", "Scale", .65, 1.6),
-            new HudControlSetting("panelWidth", "面板宽度", HudControlKind.Number, HudControlValue.Number(360), "Panel.Layout", "Width", 260, 420)
+            new HudControlSetting("panelWidth", "面板宽度", HudControlKind.Number, HudControlValue.Number(360), "Panel.Layout", "Width", 260, 420),
+            new HudControlSetting("key.visibility", "HUD显示／详情", HudControlKind.Integer, HudControlValue.Integer(277), "Panel.Input", "ExpandKey", 0, 509),
+            new HudControlSetting("key.team", "队伍信息", HudControlKind.Integer, HudControlValue.Integer(279), "Team", "PageKey", 0, 509),
+            new HudControlSetting("key.style", "循环HUD样式", HudControlKind.Integer, HudControlValue.Integer(286), "Presentation", "CycleStyleKey", 0, 509),
+            new HudControlSetting("key.restore", "恢复原版HUD", HudControlKind.Integer, HudControlValue.Integer(19), "OriginalHUD", "RestoreKey", 0, 509)
         };
 
+        readonly Func<int, bool> validKey;
         readonly string path;
         readonly Func<string, HudControlValue> readSaved;
         readonly Action<string, HudControlValue> writeSaved;
@@ -35,8 +40,9 @@ namespace PreLuna.ThirdPersonHUD.Control
             string path,
             Func<string, HudControlValue> readSaved,
             Action<string, HudControlValue> writeSaved,
-            Func<string, string> serialize)
+            Func<string, string> serialize, Func<int, bool> validKey = null)
         {
+            this.validKey = validKey;
             this.path = path ?? throw new ArgumentNullException(nameof(path));
             this.readSaved = readSaved ?? throw new ArgumentNullException(nameof(readSaved));
             this.writeSaved = writeSaved ?? throw new ArgumentNullException(nameof(writeSaved));
@@ -130,6 +136,9 @@ namespace PreLuna.ThirdPersonHUD.Control
                 }
 
                 var issue = definition.Validate(pair.Value);
+                if (issue == null && pair.Key.StartsWith("key.", StringComparison.Ordinal) &&
+                    pair.Value.TryGetInteger(out var code) && validKey != null && !validKey(code))
+                    issue = new HudControlIssue(pair.Key, "不是有效的按键");
                 if (issue != null) issues.Add(issue);
             }
 

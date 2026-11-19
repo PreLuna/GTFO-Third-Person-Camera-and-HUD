@@ -22,6 +22,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             mark = config.Bind("Team", "MarkSeconds", d.MarkSeconds, new ConfigDescription("实际队员 Ping 事件的通知保留秒数；不延长原版标记。",new AcceptableValueRange<float>(.1f,10)));
         }
         internal HudTeamOptions Read() => new HudTeamOptions(enabled.Value, details.Value, cooperation.Value, replace.Value, ammo.Value, tool.Value, mark.Value).Sanitized();
+        internal KeyCode ControlPageKey { get => pageKey.Value; set => pageKey.Value = value; }
         internal KeyCode PageKey=>pageKey.Value;
         internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
         internal string ControlSerialized(string key) => key == "team" ? enabled.GetSerializedValue() : null;

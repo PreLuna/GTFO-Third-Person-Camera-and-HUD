@@ -169,6 +169,14 @@ namespace PreLuna.ThirdPerson.Runtime
         {
             switch (key)
             {
+                case "key.toggle": return ThirdPersonControlValue.Integer((int)Toggle.Value);
+                case "key.reset": return ThirdPersonControlValue.Integer((int)Reset.Value);
+                case "key.snapshot": return ThirdPersonControlValue.Integer((int)Snapshot.Value);
+                case "key.swapShoulder": return ThirdPersonControlValue.Integer((int)SwapShoulder.Value);
+                case "key.cyclePreset": return ThirdPersonControlValue.Integer((int)CyclePreset.Value);
+                case "key.capture": return ThirdPersonControlValue.Integer((int)CaptureToggle.Value);
+                case "key.pointer": return ThirdPersonControlValue.Integer((int)PointerOverlayKey.Value);
+                case "key.observe": return ThirdPersonControlValue.Integer((int)Observe.Value);
                 case "distance": return ThirdPersonControlValue.Number(distance.Value);
                 case "shoulder": return ThirdPersonControlValue.Number(shoulder.Value);
                 case "height": return ThirdPersonControlValue.Number(height.Value);
@@ -180,6 +188,23 @@ namespace PreLuna.ThirdPerson.Runtime
 
         internal void WriteControl(string key, ThirdPersonControlValue value)
         {
+            if (key.StartsWith("key.", StringComparison.Ordinal))
+            {
+                if (!value.TryGetInteger(out var code) || !Enum.IsDefined(typeof(KeyCode), code))
+                    throw new ArgumentException("不是有效的按键");
+                switch (key)
+                {
+                    case "key.toggle": Toggle.Value = (KeyCode)code; return;
+                    case "key.reset": Reset.Value = (KeyCode)code; return;
+                    case "key.snapshot": Snapshot.Value = (KeyCode)code; return;
+                    case "key.swapShoulder": SwapShoulder.Value = (KeyCode)code; return;
+                    case "key.cyclePreset": CyclePreset.Value = (KeyCode)code; return;
+                    case "key.capture": CaptureToggle.Value = (KeyCode)code; return;
+                    case "key.pointer": PointerOverlayKey.Value = (KeyCode)code; return;
+                    case "key.observe": Observe.Value = (KeyCode)code; return;
+                    default: throw new ArgumentException("未注册按键：" + key);
+                }
+            }
             if (value == null) return;
             if (key == "leftShoulder")
             {
@@ -200,6 +225,8 @@ namespace PreLuna.ThirdPerson.Runtime
 
         internal string SerializeControl(string key)
         {
+            if (key.StartsWith("key.", StringComparison.Ordinal) && ReadControl(key)?.TryGetInteger(out var code) == true)
+                return ((KeyCode)code).ToString();
             var value = ReadControl(key);
             if (value == null) return null;
             if (value.TryGetBoolean(out var boolean)) return boolean ? "true" : "false";

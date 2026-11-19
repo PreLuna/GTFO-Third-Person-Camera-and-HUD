@@ -69,6 +69,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 bindingVersion.Value=1;
             }
         }
+        internal KeyCode ControlExpandKey { get => expandKey.Value; set => expandKey.Value = value; }
         internal KeyCode ExpandKey=>expandKey.Value;
         internal bool ToggleExpand=>toggle.Value;
         internal bool ToggleHudVisibility=>toggleHud.Value;

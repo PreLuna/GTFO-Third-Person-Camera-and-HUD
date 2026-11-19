@@ -60,6 +60,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             }
         }
         HudLayoutStyle? runtimeStyle;
+        internal KeyCode ControlCycleKey { get => cycleKey.Value; set => cycleKey.Value = value; }
         internal KeyCode CycleStyleKey=>cycleKey.Value;
         internal HudLayoutStyle CycleStyle()
         {

@@ -77,12 +77,16 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         internal double LogIntervalSeconds => float.IsFinite(logInterval.Value) ? logInterval.Value : 10;
 
         internal HudControlState CreateControl(string path)
-            => new HudControlState(path, ReadControl, WriteControl, SerializeControl);
+            => new HudControlState(path, ReadControl, WriteControl, SerializeControl, code => Enum.IsDefined(typeof(KeyCode), code));
 
         HudControlValue ReadControl(string key)
         {
             switch (key)
             {
+                case "key.visibility": return HudControlValue.Integer((int)panel.ControlExpandKey);
+                case "key.team": return HudControlValue.Integer((int)team.ControlPageKey);
+                case "key.style": return HudControlValue.Integer((int)division.ControlCycleKey);
+                case "key.restore": return HudControlValue.Integer((int)replacement.ControlRestoreKey);
                 case "panel": return HudControlValue.Boolean(panel.ControlEnabled);
                 case "personal": return HudControlValue.Boolean(personal.ControlEnabled);
                 case "team": return HudControlValue.Boolean(team.ControlEnabled);
@@ -98,6 +102,19 @@ namespace PreLuna.ThirdPersonHUD.Runtime
 
         void WriteControl(string key, HudControlValue value)
         {
+            if (key.StartsWith("key.", StringComparison.Ordinal))
+            {
+                if (!value.TryGetInteger(out var code) || !Enum.IsDefined(typeof(KeyCode), code))
+                    throw new ArgumentException("不是有效的按键");
+                switch (key)
+                {
+                    case "key.visibility": panel.ControlExpandKey = (KeyCode)code; return;
+                    case "key.team": team.ControlPageKey = (KeyCode)code; return;
+                    case "key.style": division.ControlCycleKey = (KeyCode)code; return;
+                    case "key.restore": replacement.ControlRestoreKey = (KeyCode)code; return;
+                    default: throw new ArgumentException("未注册按键：" + key);
+                }
+            }
             switch (key)
             {
                 case "panel":
@@ -134,6 +151,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
 
         string SerializeControl(string key)
         {
+            if (key.StartsWith("key.", StringComparison.Ordinal) && ReadControl(key)?.TryGetInteger(out var code) == true)
+                return ((KeyCode)code).ToString();
             switch (key)
             {
                 case "panel":

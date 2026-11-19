@@ -102,7 +102,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 var options=settings.Read();
                 var nextReplacement=settings.ReadReplacement();
                 if(nextReplacement!=replacementOptions){original.ResetConflicts();replacementOptions=nextReplacement;}
-                if(Input.GetKeyDown(settings.RestoreKey))
+                if(Application.isFocused && InputMapper.PlayerHasFocus && FocusStateManager.CurrentState == eFocusState.FPS && !PlayerChatManager.InChatMode && Input.GetKeyDown(settings.RestoreKey))
                 {RestoreOriginal(originalRestored);Plugin.Instance?.Log.LogInfo(originalRestored?"原版 HUD 已恢复，替代已暂停；再次按恢复键可恢复自动校验。":"允许重新校验原版 HUD 替代。");}
                 if(panel!=null)
                 {

@@ -19,7 +19,7 @@ namespace PreLuna.ThirdPerson.Runtime
     [BepInPlugin(Id,"第三人称视角",Version)]
     public sealed class Plugin : BasePlugin
     {
-        public const string Id="PreLuna.ThirdPerson",Version="0.6.30",GameRevision="34873";
+        public const string Id="PreLuna.ThirdPerson",Version="0.6.32",GameRevision="34873";
         const string NativeHash="C6A5C3CD8CA5FE2A8C1A71A3D107663E8CBF01404820DBBDA2EA10C4BFD7BF55";
         internal static Plugin Instance;
         internal PluginSettings Settings;
@@ -45,7 +45,7 @@ namespace PreLuna.ThirdPerson.Runtime
             {
                 BinaryHash=Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(GetType().Assembly.Location)));
                 Settings=new PluginSettings(Config);
-                CameraControl=new ThirdPersonControlState(Config.ConfigFilePath,Settings.ReadControl,Settings.WriteControl,Settings.SerializeControl,()=>Config.SaveOnConfigSet,value=>Config.SaveOnConfigSet=value);
+                CameraControl=new ThirdPersonControlState(Config.ConfigFilePath,Settings.ReadControl,Settings.WriteControl,Settings.SerializeControl,()=>Config.SaveOnConfigSet,value=>Config.SaveOnConfigSet=value,code=>Enum.IsDefined(typeof(KeyCode),code));
                 harmony=new Harmony(Id);
                 Control=new OptionalControlProbe(()=>
                 {
@@ -53,7 +53,13 @@ namespace PreLuna.ThirdPerson.Runtime
                     return null;
                 });
                 assemblyLoaded=(_,__)=>{Control?.Invalidate();Runtime?.InvalidateHeadCameraProbe();};AppDomain.CurrentDomain.AssemblyLoad+=assemblyLoaded;ResourceLedger.Create(OwnedResource.Subscription);
-                hudConfigurationChanged=(_,__)=>Interlocked.Increment(ref hudConfigurationRevision);
+                hudConfigurationChanged=(_,__)=>
+                {
+                    Interlocked.Increment(ref hudConfigurationRevision);
+                    // BepInEx raises SettingChanged after its automatic Save succeeds.
+                    // Controlled writes disable auto-save and keep their own hash guard.
+                    if(Config.SaveOnConfigSet)CameraControl?.ObserveAutomaticSave();
+                };
                 Config.SettingChanged+=hudConfigurationChanged;ResourceLedger.Create(OwnedResource.Subscription);
                 string native=Path.Combine(Paths.GameRootPath,"GameAssembly.dll");
                 using(var stream=File.OpenRead(native))using(var hash=SHA256.Create())if(Convert.ToHexString(hash.ComputeHash(stream))!=NativeHash)

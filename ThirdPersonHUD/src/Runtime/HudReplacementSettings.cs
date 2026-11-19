@@ -20,6 +20,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             restoreKey=config.Bind("OriginalHUD","RestoreKey",KeyCode.Pause,"一键恢复原版并锁定暂停替代；再次按下允许重新校验后替代，可改绑。");
         }
         internal HudReplacementOptions Read()=>new(enabled.Value,health.Value,infection.Value,ammo.Value,tool.Value,items.Value);
+        internal KeyCode ControlRestoreKey { get => restoreKey.Value; set => restoreKey.Value = value; }
         internal KeyCode RestoreKey=>restoreKey.Value;
     }
 }
