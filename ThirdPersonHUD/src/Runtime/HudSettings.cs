@@ -87,6 +87,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 case "personal": return HudControlValue.Boolean(personal.ControlEnabled);
                 case "team": return HudControlValue.Boolean(team.ControlEnabled);
                 case "scene": return HudControlValue.Boolean(scene.ControlEnabled);
+                case "shortPrompt": return HudControlValue.Boolean(scene.ControlShortPrompt);
+                case "hideNativePrompt": return HudControlValue.Boolean(scene.ControlHideNativePrompt);
                 case "alerts": return HudControlValue.Boolean(alerts.ControlEnabled);
                 case "panelScale": return HudControlValue.Number(panel.ControlScale);
                 case "panelWidth": return HudControlValue.Number(panel.ControlWidth);
@@ -109,6 +111,12 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                     return;
                 case "scene":
                     if (value.TryGetBoolean(out var sceneEnabled)) scene.ControlEnabled = sceneEnabled;
+                    return;
+                case "shortPrompt":
+                    if (value.TryGetBoolean(out var shortPromptEnabled)) scene.ControlShortPrompt = shortPromptEnabled;
+                    return;
+                case "hideNativePrompt":
+                    if (value.TryGetBoolean(out var hideNativePromptEnabled)) scene.ControlHideNativePrompt = hideNativePromptEnabled;
                     return;
                 case "alerts":
                     if (value.TryGetBoolean(out var alertsEnabled)) alerts.ControlEnabled = alertsEnabled;
@@ -137,6 +145,10 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 case "team":
                     return team.ControlSerialized(key);
                 case "scene":
+                    return scene.ControlSerialized(key);
+                case "shortPrompt":
+                    return scene.ControlSerialized(key);
+                case "hideNativePrompt":
                     return scene.ControlSerialized(key);
                 case "alerts":
                     return alerts.ControlSerialized(key);

@@ -7,7 +7,7 @@ namespace PreLuna.ThirdPersonHUD.Control
     internal sealed class HudControlState
     {
         internal const string TargetId = "PreLuna.ThirdPersonHUD";
-        internal const string ControlVersion = "0.13.1";
+        internal const string ControlVersion = "0.15.2";
 
         internal static readonly IReadOnlyList<HudControlSetting> Definitions = new[]
         {
@@ -16,6 +16,8 @@ namespace PreLuna.ThirdPersonHUD.Control
             new HudControlSetting("team", "队伍摘要", HudControlKind.Boolean, HudControlValue.Boolean(true), "Team", "Enabled"),
             new HudControlSetting("scene", "场景提示", HudControlKind.Boolean, HudControlValue.Boolean(true), "Scene", "Enabled"),
             new HudControlSetting("alerts", "提示区", HudControlKind.Boolean, HudControlValue.Boolean(true), "Alerts", "Enabled"),
+            new HudControlSetting("shortPrompt", "1b短提示", HudControlKind.Boolean, HudControlValue.Boolean(false), "Scene", "ShortPrompt"),
+            new HudControlSetting("hideNativePrompt", "1b隐藏原版提示", HudControlKind.Boolean, HudControlValue.Boolean(false), "Scene", "HideNativePrompt"),
             new HudControlSetting("panelScale", "面板缩放", HudControlKind.Number, HudControlValue.Number(1), "Panel.Layout", "Scale", .65, 1.6),
             new HudControlSetting("panelWidth", "面板宽度", HudControlKind.Number, HudControlValue.Number(360), "Panel.Layout", "Width", 260, 420)
         };

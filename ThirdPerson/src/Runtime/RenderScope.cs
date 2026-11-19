@@ -11,7 +11,6 @@ namespace PreLuna.ThirdPerson.Runtime
     internal sealed class RenderScope : IDisposable
     {
         readonly RestoreJournal journal=new();
-        readonly C_Camera culler;
         readonly Camera camera;
         readonly float originalNear;
         readonly float originalFov;
@@ -35,7 +34,7 @@ namespace PreLuna.ThirdPerson.Runtime
         internal Vector3 DisplayNeckPosition {get;private set;}
         internal RenderScope(LocalPlayerAgent player,DisplayView view,CameraSettings settings,float? displayFov=null)
         {
-            var fps=player.FPSCamera;camera=fps.m_camera;culler=fps.m_cullingCamera;
+            var fps=player.FPSCamera;camera=fps.m_camera;var culler=fps.m_cullingCamera;
             if(camera==null||culler==null)throw new InvalidOperationException("本机世界相机或裁剪组件失效");
             if(camera.transform.Pointer==player.transform.Pointer||culler.transform.Pointer==player.transform.Pointer)
                 throw new InvalidOperationException("相机/裁剪与人物根物体重合，需要另行适配");
@@ -117,9 +116,9 @@ namespace PreLuna.ThirdPerson.Runtime
         {
             if(disposed)return;disposed=true;
             Exception error=null;
+            // The native pre-cull owns visibility and lights. Re-running it from
+            // post-render can unregister renderers while Unity drains scene changes.
             try{journal.Dispose();}catch(Exception e){error=e;}
-            // Rebuild native visibility at the original camera without moving its agent/node.
-            try{if(culler!=null){culler.RunVisibility();C_CullingManager.C_CameraUpdate();C_CullingManager.SortAndUpdateLights();}}catch(Exception e){error=error==null?e:new AggregateException(error,e);}
             try
             {
                 WasRestored=camera!=null&&camera.cullingMask==originalMask&&Math.Abs(camera.nearClipPlane-originalNear)<.00001f&&Math.Abs(camera.fieldOfView-originalFov)<.00001f;

@@ -19,7 +19,7 @@ namespace PreLuna.ThirdPerson.Runtime
     [BepInPlugin(Id,"第三人称视角",Version)]
     public sealed class Plugin : BasePlugin
     {
-        public const string Id="PreLuna.ThirdPerson",Version="0.6.3",GameRevision="34873";
+        public const string Id="PreLuna.ThirdPerson",Version="0.6.30",GameRevision="34873";
         const string NativeHash="C6A5C3CD8CA5FE2A8C1A71A3D107663E8CBF01404820DBBDA2EA10C4BFD7BF55";
         internal static Plugin Instance;
         internal PluginSettings Settings;
@@ -75,12 +75,16 @@ namespace PreLuna.ThirdPerson.Runtime
                 Install(guard,typeof(ItemEquippable),"get_AimButtonPressed",nameof(AimPressed));
                 Install(guard,typeof(Weapon),"CastWeaponRay",nameof(CastRay),parameters:new[]{typeof(Transform),typeof(Weapon.WeaponHitData).MakeByRefType(),typeof(Vector3),typeof(int)});
                 Install(guard,typeof(PlayerManager),"OnLevelCleanup",nameof(Cleanup));
+                Install(guard,typeof(PlayerSync),"SendThrowStatus",postfix:nameof(ThrowStatus),
+                    parameters:new[]{typeof(pPlayerThrowStatus.StatusEnum),typeof(bool)});
+                Install(guard,typeof(PlayerSync),"SendGenericInteract",postfix:nameof(ConsumableInteraction),
+                    parameters:new[]{typeof(pGenericInteractAnimation.TypeEnum),typeof(bool)});
                 ClassInjector.RegisterTypeInIl2Cpp<ThirdPersonRuntime>();Runtime=AddComponent<ThirdPersonRuntime>();
                 beforeCamera=(Action<Camera>)AnyCamera;beforeRender=(Action<Camera>)AnyPreRender;afterCamera=(Action<Camera>)AnyCameraFinished;
                 Camera.onPreCull+=beforeCamera;beforeSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
                 Camera.onPreRender+=beforeRender;renderSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
                 Camera.onPostRender+=afterCamera;afterSubscribed=true;ResourceLedger.Create(OwnedResource.Subscription);
-                Log.LogInfo("第三人称 "+Version+" 身体比例修复候选已加载；SHA256="+BinaryHash+"；本机视觉根1.2倍放大仅在第三人称身体显示期间校正，第一人称恢复原值；F8保留尺寸诊断。待实机验收。");
+                Log.LogInfo("第三人称 "+Version+" 已加载。SHA256="+BinaryHash+"。F8 可记录身体比例与装备模型来源。");
             }
             catch {Unload();throw;}
         }
@@ -131,6 +135,10 @@ namespace PreLuna.ThirdPerson.Runtime
         static void CastRay(Transform __0,ref Weapon.WeaponHitData __1,Vector3 __2)
         {var data=__1;Instance?.Runtime?.Guard(()=>FireAimScope.Current?.Adapt(__0,data,__2));}
         static void Cleanup()=>Instance?.Runtime?.Guard(()=>Instance.Runtime.LevelCleanup());
+        static void ThrowStatus(PlayerSync __instance,pPlayerThrowStatus.StatusEnum __0)
+            =>Instance?.Runtime?.Guard(()=>Instance.Runtime.ObserveConsumableThrow(__instance,__0));
+        static void ConsumableInteraction(PlayerSync __instance,pGenericInteractAnimation.TypeEnum __0)
+            =>Instance?.Runtime?.Guard(()=>Instance.Runtime.ObserveConsumableInteraction(__instance,__0));
         static void AnyCamera(Camera camera)=>Instance?.Runtime?.Guard(()=>Instance.Runtime.OtherCameraBegin(camera));
         static void AnyPreRender(Camera camera)=>Instance?.Runtime?.Guard(()=>Instance.Runtime.CameraPreRender(camera));
         static void AnyCameraFinished(Camera camera)=>Instance?.Runtime?.Guard(()=>Instance.Runtime.CameraFinished(camera));

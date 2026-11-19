@@ -9,12 +9,14 @@ namespace PreLuna.ThirdPersonHUD.Panel
 {
     public readonly record struct HudSceneCard(string Title,string Text,string Secondary,float? Progress)
     { public bool Active=>!string.IsNullOrEmpty(Title); }
+    public readonly record struct HudScenePrompt(bool Active,string Text,float? Progress,HudWorldPoint Position);
     public readonly record struct HudSceneMarkerView(PixelViewport Bounds,string Text,HudSceneMarkerKind Kind,int Priority);
     public readonly record struct HudScenePresentation(bool Active,PixelViewport Viewport,HudSceneOptions Options,
         HudSceneCard Interaction,HudSceneCard Objective,HudSceneMarkerView First,HudSceneMarkerView Second,HudSceneMarkerView Third,int Count)
     {public HudSceneCard Mission { get; init; }
         public HudSceneCard Scan { get; init; }
         public HudSceneCard Countdown { get; init; }
+        public HudScenePrompt Prompt { get; init; }
         public HudSceneMarkerView this[int i]=>i switch{0=>First,1=>Second,2=>Third,_=>default};}
     public static class HudSceneMapper
     {
@@ -40,15 +42,35 @@ namespace PreLuna.ThirdPersonHUD.Panel
             var o=raw.Sanitized();
             if(!o.Enabled||!HudContentRules.EvaluateDisplay(current,display,snapshot.Header,epoch,revision,policy).Allowed)return default;
             var r=new Reader(current,snapshot,epoch,revision,policy);var s=snapshot.Scene;
-            var interaction=default(HudSceneCard);var objective=default(HudSceneCard);
+            var interaction=default(HudSceneCard);var objective=default(HudSceneCard);var prompt=default(HudScenePrompt);
             HudSceneCard missionCard=default,scanCard=default,countdownCard=default;
             if(o.Interaction&&r.Subject(s.Interaction.Subject,out var target))
-                interaction=new("交互 · "+r.Text(s.Interaction.Name,target,"交互目标"),r.Text(s.Interaction.Action,target,"操作未读取"),"按键 "+r.Text(s.Interaction.Key,target,"未读取"),r.Progress(s.Interaction.Progress,target));
+            {
+                var keyText=r.Read(s.Interaction.Key,target,out var keyValue)?Clean(keyValue.Text,16):"未读取";
+                var actionText=r.Text(s.Interaction.Action,target);
+                var nameText=r.Text(s.Interaction.Name,target,"交互目标");
+                var card=new HudSceneCard("交互 · "+nameText,actionText,"按键 "+keyText,r.Progress(s.Interaction.Progress,target));
+                if(o.ShortPrompt&&r.Read(s.Interaction.Position,target,out var position)&&HudPromptProjection.TryProject(display,position,out _))
+                {
+                    string key=keyText=="未读取"?"":keyText;
+                    string line=(key.Length>0?"【"+key+"】 ":"")+(actionText=="未读取"?"":actionText+" ")+nameText;
+                    if(line.Trim().Length>0)prompt=new(true,Clean(line,80),card.Progress,position);else interaction=card;
+                }
+                else interaction=card;
+            }
             if(o.Supply&&r.Subject(s.Supply.Subject,out var pack)&&r.Read(s.Supply.Recipient,pack,out var recipient)
                 &&recipient.Player.Agent==pack.Related&&recipient.Self==(recipient.Player==current.ExpectedBinding.LocalPlayer))
             {
+                prompt=default;
                 string count=r.Read(s.Supply.Uses,pack,out var q)&&q.Unit==HudUnit.Uses?q.Amount.ToString("0",CultureInfo.InvariantCulture)+"次":"未读取";
-                interaction=new("补给 · "+r.Text(s.Supply.Item,pack),"接收对象 · "+(recipient.Self?"自己":Clean(recipient.Name,64)),"剩余 "+count,r.Progress(s.Supply.Progress,pack));
+                string item=r.Text(s.Supply.Item,pack);string recipientName=recipient.Self?"自己":Clean(recipient.Name,64);
+                var card=new HudSceneCard("补给 · "+item,"接收对象 · "+recipientName,"剩余 "+count,r.Progress(s.Supply.Progress,pack));
+                if(o.ShortPrompt&&r.Read(s.Supply.Position,pack,out var position)&&HudPromptProjection.TryProject(display,position,out _))
+                {
+                    string line="补给 · "+item+" · "+recipientName+" · 剩余 "+count;
+                    prompt=new(true,Clean(line,80),card.Progress,position);
+                }
+                else interaction=card;
             }
             string title="",text="",secondary="";float? progress=null;
             if(o.Mission&&r.Subject(s.Countdown.Subject,out var timer)){title="倒计时 · "+r.Text(s.Countdown.Title,timer);text=r.Text(s.Countdown.Text,timer);countdownCard=new(title,text,"",null);}
@@ -80,7 +102,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
                 }
                 first=a;second=b;third=d;countVisible=Math.Min(o.MaximumMarkers,(a.Priority>0?1:0)+(b.Priority>0?1:0)+(d.Priority>0?1:0));
             }
-            return new(true,display.Camera.Viewport,o,interaction,objective,first,second,third,countVisible){Mission=missionCard,Scan=scanCard,Countdown=countdownCard};
+            return new(true,display.Camera.Viewport,o,interaction,objective,first,second,third,countVisible){Mission=missionCard,Scan=scanCard,Countdown=countdownCard,Prompt=prompt};
         }
         public static bool CountdownCovered(in HudRuntimeContext current,in HudContentSnapshot snapshot,long epoch,long revision,HudContentPolicy policy,HudSceneOptions raw)
         {

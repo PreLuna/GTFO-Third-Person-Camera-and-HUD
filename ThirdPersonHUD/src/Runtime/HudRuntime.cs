@@ -13,6 +13,11 @@ namespace PreLuna.ThirdPersonHUD.Runtime
     {
         IHudRuntimePresentation presentation;
         HolographicHud panel;
+        InteractionGuiLayer nativePromptLayer;
+        GameObject nativePromptObject;
+        CanvasGroup nativePromptGroup;
+        float nativePromptAlpha=1f;
+        bool nativePromptInteractable=true,nativePromptBlocksRaycasts=true;
         HudPanelOptions panelOptions=HudPanelOptions.Default;
         readonly HudPanelVisualController visuals=new();
         readonly HudPersonalFeedback feedback=new();
@@ -153,6 +158,54 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             }
             catch (Exception error) { original?.RestoreAll();lifecycle.ReportPresentationFailure(error, ThirdPersonApi.MonotonicSeconds); }
         }
+        public void LateUpdate() => UpdateNativePromptSuppression();
+        [HideFromIl2Cpp]
+        void UpdateNativePromptSuppression()
+        {
+            if(stopped||panel==null){RestoreNativePrompt();return;}
+            bool hide=sceneOptions.ShortPrompt&&sceneOptions.HideNativePrompt&&panel.PromptActive;
+            if(hide)
+            {
+                try
+                {
+                    if(nativePromptLayer==null) nativePromptLayer=GuiManager.InteractionLayer;
+                    var prompt=nativePromptLayer?.m_interactPrompt;
+                    var go=prompt?.gameObject;
+                    if(go==null){nativePromptLayer=null;RestoreNativePrompt();return;}
+                    if(!ReferenceEquals(go,nativePromptObject))
+                    {
+                        RestoreNativePrompt();
+                        nativePromptObject=go;
+                        nativePromptGroup=HudNativePromptVisibility.Ensure(go);
+                        if(nativePromptGroup==null)return;
+                        nativePromptAlpha=nativePromptGroup.alpha;
+                        nativePromptInteractable=nativePromptGroup.interactable;
+                        nativePromptBlocksRaycasts=nativePromptGroup.blocksRaycasts;
+                    }
+                    if(nativePromptGroup!=null)
+                    {
+                        // Alpha suppression avoids per-frame SetActive churn on the
+                        // native prompt object while keeping its UI state alive.
+                        HudNativePromptVisibility.Hide(nativePromptGroup);
+                    }
+                    return;
+                }
+                catch{}
+            }
+            RestoreNativePrompt();
+        }
+        [HideFromIl2Cpp]
+        void RestoreNativePrompt()
+        {
+            var group=nativePromptGroup;
+            if(group==null){nativePromptObject=null;return;}
+            nativePromptGroup=null;nativePromptObject=null;
+            try
+            {
+                HudNativePromptVisibility.Restore(group,nativePromptAlpha,nativePromptInteractable,nativePromptBlocksRaycasts);
+            }
+            catch{}
+        }
         [HideFromIl2Cpp] void ConnectProvider()
         {
             ThirdPersonApi.TryGetProvider(out var next);
@@ -213,6 +266,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             if(panel!=null)PreparePanel(drawCurrent with{NowSeconds=ThirdPersonApi.MonotonicSeconds});
             long before=presentation.Diagnostics.ActualDraws;
             presentation.Draw();
+            if(panel!=null)panel.DrawPrompt(drawDisplay);
             bool rendered=panel!=null&&presentation.Diagnostics.ActualDraws>before&&presentation.Diagnostics.LastDraw.FrameNumber==drawCurrent.FrameNumber;
             if(rendered&&!reportedFirstDraw)
             {reportedFirstDraw=true;Plugin.Instance?.Log.LogInfo($"第三人称HUD首次绘制成功；字体={panel.FontUsed}，完整详情={panelOptions.Layout.Expanded}。");}
@@ -265,11 +319,12 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             if (now - lastErrorAt < 5) return;
             lastErrorAt = now; Plugin.Instance?.Log.LogWarning("HUD 暂停并清理，稍后重试：" + error);
         }
-        public void OnDisable() => original?.RestoreAll();
+        public void OnDisable() { RestoreNativePrompt();original?.RestoreAll(); }
         public void OnDestroy() => Stop();
         [HideFromIl2Cpp] internal void Stop()
         {
             if (stopped) return; stopped = true;
+            RestoreNativePrompt();
             try { DisconnectProvider(); }
             finally { original?.RestoreAll();lifecycle?.Dispose(); if (lifecycle != null) RecordPerformance(true); }
         }

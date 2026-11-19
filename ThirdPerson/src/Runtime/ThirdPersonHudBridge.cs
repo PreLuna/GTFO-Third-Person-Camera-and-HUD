@@ -79,17 +79,19 @@ namespace PreLuna.ThirdPerson.Runtime
             {
             var camera = local.FPSCamera.m_camera;
             if (camera.targetTexture != null || headCameraProbe?.IsCaptureCamera(ObjectKey(camera)) == true)
-            { hudProvider?.AbortMain(); return; }
+            { pointerCameraValid = false; hudProvider?.AbortMain(); return; }
             var rect = camera.pixelRect;
             var snapshot = new CameraSnapshot(Pose(camera.transform), Matrix(camera.worldToCameraMatrix),
                 Matrix(camera.projectionMatrix), new(rect.x, rect.y, rect.width, rect.height));
+            pointerCamera = snapshot; pointerCameraValid = true;
             hudProvider?.PublishMain(snapshot, Pose(local.transform));
             }
             catch(Exception error)
-            {hudProvider?.AbortMain();Plugin.Instance?.Log.LogWarning("HUD 相机快照暂不可用："+error.Message);}
+            {pointerCameraValid=false;hudProvider?.AbortMain();Plugin.Instance?.Log.LogWarning("HUD 相机快照暂不可用："+error.Message);}
         }
         [HideFromIl2Cpp] void ResetHudContext()
         {
+            pointerCameraValid = false;
             hudLevelCleared = true; hudClearedFloor = Id(LevelGeneration.Builder.CurrentFloor);
             hudProvider?.ResetContext();
         }

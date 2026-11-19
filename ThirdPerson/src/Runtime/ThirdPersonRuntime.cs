@@ -1,6 +1,8 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using System.Threading.Tasks;
+using Stopwatch=System.Diagnostics.Stopwatch;
 using BepInEx;
 using Il2CppInterop.Runtime;
 using Il2CppInterop.Runtime.Attributes;
@@ -30,6 +32,13 @@ namespace PreLuna.ThirdPerson.Runtime
         readonly CameraRenderStack cameraStack=new();
         readonly AimController aim=new();
         readonly ContextTracker context=new();
+        readonly PresentationRecovery recovery=new();
+        PresentationWorld boundWorld;
+        PresentationBinding preparedBinding;
+        int preparedFrame=-1;
+        int releaseCount,lastReleaseFrame=-1,lastBindFrame=-1,lastPrepareFrame=-1,lastWarmupFrame=-1;
+        string lastReleaseReason="";
+        double lastReleaseMs,lastBindMs,lastPrepareMs;
         readonly string sessionId=Guid.NewGuid().ToString("N");
         readonly PerformanceSession performance=new();
         object performanceMetadata;
@@ -45,22 +54,35 @@ namespace PreLuna.ThirdPerson.Runtime
         bool? lastBodyPoseRestored;
         float lastRightArmGripError,lastLeftArmGripError;
         readonly WorldWeaponView weapon=new();
+        readonly MeleeSpikeView meleeSpike=new();
+        readonly NativeThirdPersonEquipmentView nativeEquipmentA=new();
         readonly NativeBodyHolding nativeHolding=new();
         object lastNativeHolding;
+        object lastEquipmentCopyRender;
+        bool manualSnapshotPending;
+        object manualGlueGunPose;
+        object manualMeleePose;
+        object manualResourcePackPose;
+        object manualFlashlightPose;
+        string equipmentCopyStatus="inactive";
         RenderScope scope;
         FirstPersonLayerView firstPerson;
-        bool insidePreCull,stopped;
-        long ownerId,modelId;
+        bool insidePreCull,stopped,releasing;
         int scopeFrame=-1,solverFrame=-1;
         float attackUntil;
+        long throwItem;
+        float throwUntil;
+        long placementItem;
+        float placementUntil;
+        pPlayerThrowStatus.StatusEnum throwStatus;
         string detail="disabled";
+        string lastSuspendReason="";
         string audioHandling="not-observed";
         LogicalView logical;
         DisplayView display;
         Vector3 expectedBody,expectedEye;
         int renders,restores,collisionFallbacks,levelCleanups;
         bool? lastRenderRestored;
-        object lastReleasedBody;
         int lastBodyFrame=-1,lastBodyRenderers,lastWeaponParts,lastVisibleWeaponParts;
         bool lastBodyCameraLinked;
         int lastPinnedBodyTransforms;
@@ -68,6 +90,9 @@ namespace PreLuna.ThirdPerson.Runtime
         BodyScaleSnapshot lastBodySizeBefore,lastBodySizeDuring;
         float lastGripPositionError,lastGripRotationError;
         FallbackReason previousReason=FallbackReason.Disabled;
+        double lastStallFrameAt=double.NaN,lastStallSnapshotAt=double.NegativeInfinity;
+        float lastStallFrameMs;int stallAutoSnapshots;
+        Task stallWrite;
         public void Awake(){state.Request(Plugin.Instance.Settings.Enabled.Value);InitializeHudBridge();}
         public void Update()
         {
@@ -76,34 +101,49 @@ namespace PreLuna.ThirdPerson.Runtime
             {
                 if(scope!=null){EndRender();Fault("相机渲染未在当前帧结束，已恢复并停用");}
                 var local=Local();
-                if(context.Observe(local==null?default:new WorldContext(Id(local),Id(local.Owner),Id(LevelGeneration.Builder.CurrentFloor),(int)local.DimensionIndex,Id(local.PlayerSyncModel)),local==null?default:ConvertView.N(local.transform.position)))
-                {EndObservation(local,false,"context-change");ResetObservationFeedback();aim.Cancel();Release();}
-                if(player!=null&&(local==null||local.Pointer!=player.Pointer||Id(local.Owner)!=ownerId))Release();
+                if(throwItem!=0&&throwItem!=Id(local?.Inventory?.WieldedItem))
+                {throwItem=0;throwStatus=pPlayerThrowStatus.StatusEnum.None;}
+                if(placementItem!=0&&placementItem!=Id(local?.Inventory?.WieldedItem))placementItem=0;
+                if(context.Observe(ReadWorldContext(local),local==null?default:ConvertView.N(local.transform.position)))
+                {EndObservation(local,false,"context-change");ResetObservationFeedback();Release("context-change");}
                 var gate=Gate(local);
                 var settings=Plugin.Instance.Settings;
+                if(FocusAllowed()&&Input.GetKeyDown(settings.PointerOverlayKey.Value))
+                {
+                    settings.PointerOverlay.Value=!settings.PointerOverlay.Value;
+                    Plugin.Instance.Log.LogInfo("指向覆盖层："+(settings.PointerOverlay.Value?"开启":"关闭"));
+                }
                 var key=local!=null&&FocusAllowed()?ConfigurationPolicy.Key(Input.GetKeyDown(settings.Reset.Value),Input.GetKeyDown(settings.Toggle.Value),Input.GetKeyDown(settings.Snapshot.Value),Input.GetKeyDown(settings.SwapShoulder.Value),Input.GetKeyDown(settings.CyclePreset.Value),Input.GetKeyDown(settings.CaptureToggle.Value)):HotkeyAction.None;
                 if(gate==FallbackReason.None)
                 {
                     if(key==HotkeyAction.Toggle)
-                    {state.Request(!state.Requested);Plugin.Instance.Settings.Enabled.Value=state.Requested;if(!state.Requested)Release();}
+                    {state.Request(!state.Requested);Plugin.Instance.Settings.Enabled.Value=state.Requested;}
                     if(key==HotkeyAction.Reset)
-                    {Release();Plugin.Instance.Settings.Defaults();state.ResetFault();state.Request(false);}
+                    {Release("reset");Plugin.Instance.Settings.Defaults();state.ResetFault();state.Request(false);}
                     if(key==HotkeyAction.Performance)settings.CapturePerformance.Value=!settings.CapturePerformance.Value;
                     if(state.Requested&&!state.Faulted&&key==HotkeyAction.SwapShoulder)
+                    {
                         Plugin.Instance.Settings.LeftShoulder.Value=!Plugin.Instance.Settings.LeftShoulder.Value;
+                        Plugin.Instance.Log.LogInfo("换肩："+(Plugin.Instance.Settings.LeftShoulder.Value?"左肩":"右肩"));
+                    }
                     if(state.Requested&&!state.Faulted&&key==HotkeyAction.CyclePreset)
                         Plugin.Instance.Settings.Preset.Value=(CameraPreset)(((int)Plugin.Instance.Settings.Preset.Value+1)%4);
                 }
-                if(key==HotkeyAction.Snapshot)TrySnapshot();
                 state.Request(Plugin.Instance.Settings.Enabled.Value);
                 state.Evaluate(gate);
-                aim.Poll(local,gate==FallbackReason.None&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);
-                MaintainObservation(local);
-                if(gate!=FallbackReason.None||!state.Requested||state.Faulted)Release();
-                else if(body!=null)TickNativeHolding(local,local.Inventory?.WieldedItem);
+                if(!state.CanRender)Release(state.Reason.ToString());
+                else PollAim(local,gate);
+                if(manualSnapshotPending)
+                {
+                    manualSnapshotPending=false;
+                    try{TrySnapshot();}
+                    finally{manualGlueGunPose=null;manualMeleePose=null;manualResourcePackPose=null;manualFlashlightPose=null;}
+                }
+                if(key==HotkeyAction.Snapshot)manualSnapshotPending=true;
                 TickObservationFeedback(local);
                 TickCameraFeatureNotice(local);
                 TickPerformance(gate);
+                TickStallSnapshot(gate);
                 ReportReason();
                 RefreshHudBridge();
             });
@@ -114,20 +154,60 @@ namespace PreLuna.ThirdPerson.Runtime
             Guard(()=>
             {
                 var local=Local();
-                if(!state.Requested||state.Faulted||Gate(local)!=FallbackReason.None){Release();return;}
-                PollAim(local);
-                if(aim.Active&&aim.Gesture.Mode==ViewMode.FirstPersonAim||AttackFallback(local))
-                {EndBodyPresentation();return;}
+                var gate=Gate(local);
+                state.Request(Plugin.Instance.Settings.Enabled.Value);state.Evaluate(gate);
+                if(!state.CanRender){Release(state.Reason.ToString());return;}
                 var item=local.Inventory?.WieldedItem;
-                if(item==null||local.PlayerSyncModel?.ItemAlign==null||!Bind(local,item))
+                if(!TryReadPresentation(local,item,out var binding,out var missing))
+                {ReleaseUnavailable(missing);return;}
+                if(boundWorld!=default&&binding.World!=boundWorld)Release("presentation-context-change");
+                if(boundWorld==default&&!recovery.Observe(binding,Time.frameCount,Time.unscaledTime))
+                {detail="waiting-for-stable-binding";return;}
+                PollAim(local,gate);
+                var meleeAction=GetMeleeAction(item);
+                var packAction=GetResourcePackAction(item);
+                // GlueGun is a GearClass tool with its own copy-holding path; do not
+                // let SupportsEquipmentHolding classify it as a consumable fallback.
+                bool consumable=UseEquipmentHolding(item)&&!UseGlueGunHolding(item);
+                var consumableThrow=GetConsumableThrow(item);
+                bool placement=IsPresentingPlacement(item);
+                if(aim.Active&&aim.Gesture.Mode==ViewMode.FirstPersonAim
+                    ||meleeAction==NativeBodyHolding.MeleeAction.None&&packAction==NativeBodyHolding.ResourcePackAction.None
+                      &&ConsumableUsesInputFallback(item)&&AttackFallback(local,item))
                 {EndBodyPresentation();return;}
-                if(Plugin.Instance.Settings.NativeSyncedHolding.Value&&item.IsReloading)
+                long prepareStarted=Stopwatch.GetTimestamp();
+                if(!Bind(local,item,binding))
+                {EndBodyPresentation();RecordPrepare(prepareStarted);return;}
+                var melee=IsMeleeProfile(local,item);
+                var nativeA=IsNativeEquipmentA(local,item);
+                var copy=IsEquipmentCopy(item);
+                if(!melee&&!nativeA&&!copy&&Plugin.Instance.Settings.NativeSyncedHolding.Value&&item.IsReloading)
                 {EndBodyPresentation();return;}
-                TickNativeHolding(local,item);
+                if(UseGlueGunHolding(item))nativeHolding.Tick(local,item,allowGlueGun:true);
+                else if(UseMeleeHolding(item))nativeHolding.Tick(local,item,allowMelee:true,action:meleeAction);
+                else if(packAction!=NativeBodyHolding.ResourcePackAction.None)nativeHolding.Tick(local,item,packAction:packAction);
+                else if(consumable)nativeHolding.Tick(local,item,allowEquipment:true,throwAction:consumableThrow,placement:placement);
+                else if(!melee&&!nativeA&&!copy)TickNativeHolding(local,item);
+                else nativeHolding.Release();
+                if(meleeAction!=NativeBodyHolding.MeleeAction.None)
+                {
+                    if(!nativeHolding.IsShowingMeleeAction(item,meleeAction)){EndBodyPresentation();return;}
+                    attackUntil=0;
+                }
+                if(packAction!=NativeBodyHolding.ResourcePackAction.None)
+                {
+                    if(!nativeHolding.IsShowingResourcePack(item,packAction)){EndBodyPresentation();return;}
+                    attackUntil=0;
+                }
+                if(consumable&&!nativeHolding.IsShowingEquipment(item,consumableThrow,placement))
+                {EndBodyPresentation();return;}
                 if(nativeHolding.Active&&nativeHolding.BoundFrame==Time.frameCount)body.Warmup();
                 body.Prepare(Plugin.Instance.Settings.NormalizeBodyScale.Value);
-                if(body.ReadyForMain&&nativeHolding.Active)
+                if(body.ReadyForMain&&nativeHolding.IsBoundTo(item))
                     nativeHolding.Solve(weapon,local.FPSCamera.Position+local.FPSCamera.Forward*100);
+                preparedBinding=binding;preparedFrame=Time.frameCount;
+                if(!body.ReadyForMain)lastWarmupFrame=preparedFrame;
+                RecordPrepare(prepareStarted);
             });
         }
         [HideFromIl2Cpp] void TickNativeHolding(LocalPlayerAgent local,ItemEquippable item)
@@ -137,17 +217,100 @@ namespace PreLuna.ThirdPerson.Runtime
             else nativeHolding.Release();
         }
         [HideFromIl2Cpp] void EndBodyPresentation()
-        {using var cleanup=new RestoreJournal();cleanup.Add(()=>body?.EndPresentation());cleanup.Add(nativeHolding.Release);}
-        [HideFromIl2Cpp] bool AttackFallback(LocalPlayerAgent local)
+        {using var cleanup=new RestoreJournal();cleanup.Add(()=>body?.EndPresentation());cleanup.Add(nativeHolding.Release);cleanup.Add(meleeSpike.Release);cleanup.Add(()=>nativeEquipmentA.Show(false));}
+        [HideFromIl2Cpp] bool IsMeleeProfile(LocalPlayerAgent local,ItemEquippable item)
+            => Plugin.Instance.Settings.ExperimentalMeleeBodyHolding.Value&&local!=null&&item!=null
+                &&item.pItemData.slot==InventorySlot.GearMelee
+                &&item.ItemDataBlock!=null&&item.ItemDataBlock.inventorySlot==InventorySlot.GearMelee;
+        [HideFromIl2Cpp] bool IsNativeEquipmentA(LocalPlayerAgent local,ItemEquippable item)
+            => Plugin.Instance.Settings.ExperimentalNativeEquipmentA.Value&&local!=null&&item!=null
+                &&item.ItemDataBlock!=null&&item.pItemData.slot==item.ItemDataBlock.inventorySlot
+                &&item.pItemData.slot is InventorySlot.GearMelee or InventorySlot.GearClass or InventorySlot.HackingTool
+                    or InventorySlot.ResourcePack or InventorySlot.Consumable or InventorySlot.ConsumableHeavy or InventorySlot.InLevelCarry;
+        [HideFromIl2Cpp] static bool IsEquipmentCopy(ItemEquippable item)
         {
-            bool attack=local.FPItemHolder?.ItemMeleeTrigger==true||!aim.Active&&(Input.GetMouseButton(0)||Input.GetMouseButton(1)
-                ||InputMapper.GetButton.Invoke(InputAction.Fire,local.InputFilter)||InputMapper.GetButton.Invoke(InputAction.Aim,local.InputFilter)
-                ||local.FPItemHolder?.ItemAimTrigger==true||local.FPItemHolder?.ItemIsBusy==true);
+            if(!Plugin.Instance.Settings.EquipmentCopyExperiment.Value||item?.ItemDataBlock==null)return false;
+            var slot=item.pItemData.slot;
+            return slot==item.ItemDataBlock.inventorySlot&&
+                (slot==InventorySlot.GearMelee||slot==InventorySlot.GearClass&&item.TryCast<GlueGun>()!=null
+                ||Plugin.Instance.Settings.NativeSyncedHolding.Value
+                    &&(NativeBodyHolding.SupportsResourcePack(item)||NativeBodyHolding.SupportsEquipmentHolding(item)));
+        }
+        [HideFromIl2Cpp] static bool UseGlueGunHolding(ItemEquippable item)
+            => Plugin.Instance.Settings.NativeSyncedHolding.Value&&IsEquipmentCopy(item)
+                &&item.pItemData.slot==InventorySlot.GearClass;
+        [HideFromIl2Cpp] static bool UseMeleeHolding(ItemEquippable item)
+            => Plugin.Instance.Settings.NativeSyncedHolding.Value&&IsEquipmentCopy(item)&&NativeBodyHolding.SupportsMelee(item);
+        [HideFromIl2Cpp] static bool UseResourcePackHolding(ItemEquippable item)
+            =>Plugin.Instance.Settings.NativeSyncedHolding.Value&&Plugin.Instance.Settings.EquipmentCopyExperiment.Value
+                &&NativeBodyHolding.SupportsResourcePack(item);
+        [HideFromIl2Cpp] static NativeBodyHolding.ResourcePackAction GetResourcePackAction(ItemEquippable item)
+            =>UseResourcePackHolding(item)?NativeBodyHolding.ReadResourcePackAction(item):NativeBodyHolding.ResourcePackAction.None;
+        [HideFromIl2Cpp] static bool UseEquipmentHolding(ItemEquippable item)
+            =>Plugin.Instance.Settings.NativeSyncedHolding.Value&&Plugin.Instance.Settings.EquipmentCopyExperiment.Value
+                &&NativeBodyHolding.SupportsEquipmentHolding(item);
+        [HideFromIl2Cpp] bool ConsumableUsesInputFallback(ItemEquippable item)
+            =>!UseEquipmentHolding(item)||!NativeBodyHolding.SupportsThrow(item)
+                &&!NativeBodyHolding.IsLongRangeFlashlight(item)&&GetPlacementItem(item)==null;
+        [HideFromIl2Cpp] static MineDeployerFirstPerson GetPlacementItem(ItemEquippable item)
+            =>item?.ItemDataBlock?.inventorySlot==InventorySlot.Consumable?item.TryCast<MineDeployerFirstPerson>():null;
+        [HideFromIl2Cpp] bool IsPresentingPlacement(ItemEquippable item)
+            =>placementItem!=0&&placementItem==Id(item)&&Time.time<placementUntil;
+        [HideFromIl2Cpp] internal void ObserveConsumableInteraction(PlayerSync sync,pGenericInteractAnimation.TypeEnum action)
+        {
+            if(action!=pGenericInteractAnimation.TypeEnum.PlaceTripmine)return;
+            var local=Local();
+            if(local?.Sync==null||sync.Pointer!=local.Sync.Pointer)return;
+            var item=local.Inventory?.WieldedItem;
+            if(!UseEquipmentHolding(item)||GetPlacementItem(item)==null)return;
+            placementItem=Id(item);
+            // Match the native synced action's lifetime.
+            placementUntil=Time.time+1.5f;
+        }
+        [HideFromIl2Cpp] pPlayerThrowStatus.StatusEnum GetConsumableThrow(ItemEquippable item)
+            =>throwItem!=0&&throwItem==Id(item)&&Time.time<throwUntil?throwStatus:pPlayerThrowStatus.StatusEnum.None;
+        [HideFromIl2Cpp] internal void ObserveConsumableThrow(PlayerSync sync,pPlayerThrowStatus.StatusEnum status)
+        {
+            var local=Local();
+            if(local?.Sync==null||sync.Pointer!=local.Sync.Pointer)return;
+            var item=local.Inventory?.WieldedItem;
+            if(!UseEquipmentHolding(item)||!NativeBodyHolding.SupportsThrow(item))return;
+            if(status==pPlayerThrowStatus.StatusEnum.None&&GetConsumableThrow(item)==pPlayerThrowStatus.StatusEnum.Throw)return;
+            throwItem=Id(item);
+            throwStatus=status;
+            // The native receiver keeps its release action for 0.8 seconds.
+            throwUntil=status==pPlayerThrowStatus.StatusEnum.Throw?Time.time+.8f:float.PositiveInfinity;
+        }
+        [HideFromIl2Cpp] static NativeBodyHolding.MeleeAction GetMeleeAction(ItemEquippable item)
+            =>UseMeleeHolding(item)&&item.TryCast<Gear.MeleeWeaponFirstPerson>() is { } melee
+                ?NativeBodyHolding.SelectMeleeAction(melee.CurrentStateName):NativeBodyHolding.MeleeAction.None;
+        [HideFromIl2Cpp] void ShowWeapon(bool visible)
+        {
+            if(nativeEquipmentA.Using&&equipmentCopyStatus=="inactive")nativeEquipmentA.Show(visible);
+            else if(meleeSpike.Active)meleeSpike.Show(visible);
+            else weapon.Show(player,visible);
+        }
+        [HideFromIl2Cpp] bool AttackFallback(LocalPlayerAgent local,ItemEquippable item)
+        {
+            // The GlueGun copy path owns its charge/fire display. Its native input
+            // and busy flags are not view requests and must not force first person.
+            if(UseGlueGunHolding(item))return false;
+            var holder=local.FPItemHolder;
+            bool attack=holder?.ItemMeleeTrigger==true;
+            if(!attack&&!aim.Active)
+            {
+                attack=Input.GetMouseButton(0)||Input.GetMouseButton(1)
+                    ||InputMapper.GetButton.Invoke(InputAction.Fire,local.InputFilter)
+                    ||InputMapper.GetButton.Invoke(InputAction.Aim,local.InputFilter)
+                    ||holder?.ItemAimTrigger==true||holder?.ItemIsBusy==true;
+            }
             if(attack)attackUntil=Time.unscaledTime+.25f;
             return Time.unscaledTime<attackUntil;
         }
         [HideFromIl2Cpp] static long Id(object obj)=>obj is Il2CppInterop.Runtime.InteropTypes.Il2CppObjectBase value?value.Pointer.ToInt64():0;
-        [HideFromIl2Cpp] static LocalPlayerAgent Local()=>GameStateManager.CurrentStateName==eGameStateName.InLevel?PlayerManager.GetLocalPlayerAgent()?.TryCast<LocalPlayerAgent>():null;
+        [HideFromIl2Cpp] static string SceneName(){try{return UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;}catch{return "";}}
+        [HideFromIl2Cpp] LocalPlayerAgent Local()=>!hudLevelCleared&&GameStateManager.CurrentStateName==eGameStateName.InLevel
+            ?PlayerManager.GetLocalPlayerAgent()?.TryCast<LocalPlayerAgent>():null;
         [HideFromIl2Cpp] bool FocusAllowed()=>Application.isFocused&&InputMapper.PlayerHasFocus&&InputMapper.Current?.FocusSwitchPause!=true&&FocusStateManager.CurrentState==eFocusState.FPS&&!PlayerChatManager.InChatMode;
         [HideFromIl2Cpp] bool ControlTaken()
         {
@@ -164,6 +327,36 @@ namespace PreLuna.ThirdPerson.Runtime
             if(locomotion==null||locomotion.m_currentStateEnum is not (PlayerLocomotion.PLOC_State.Stand or PlayerLocomotion.PLOC_State.StandStill or PlayerLocomotion.PLOC_State.Crouch or PlayerLocomotion.PLOC_State.Run))return FallbackReason.UnsupportedState;
             return FallbackReason.None;
         }
+        [HideFromIl2Cpp] static WorldContext ReadWorldContext(LocalPlayerAgent local)
+        {
+            if(local==null)return default;
+            var model=local.PlayerSyncModel;
+            return new(Id(local),Id(local.Owner),Id(LevelGeneration.Builder.CurrentFloor),(int)local.DimensionIndex,model==null?0:Id(model));
+        }
+        [HideFromIl2Cpp] bool TryReadPresentation(LocalPlayerAgent local,ItemEquippable item,out PresentationBinding binding,out FallbackReason missing)
+        {
+            binding=default;
+            var fps=local.FPSCamera;var camera=fps.m_camera;var culler=fps.m_cullingCamera;
+            missing=FallbackReason.NoPlayer;
+            if(camera==null||!camera.enabled||culler==null||culler.m_cullAgent?.CurrentNode==null)return false;
+            var worldContext=ReadWorldContext(local);
+            missing=FallbackReason.MissingModel;
+            if(worldContext.Floor==0||worldContext.Model==0||item==null)return false;
+            var align=local.PlayerSyncModel.ItemAlign;
+            if(align==null&&!IsMeleeProfile(local,item)&&!IsNativeEquipmentA(local,item))return false;
+            var holder=local.FPItemHolder;
+            binding=new(new(worldContext,Id(fps),Id(camera),Id(culler),Id(holder),
+                Id(fps.m_itemCamera),Id(holder?.m_ItemLayerCamera),align==null?0:Id(align)),Id(item));
+            missing=FallbackReason.None;
+            return true;
+        }
+        [HideFromIl2Cpp] void ReleaseUnavailable(FallbackReason reason)
+        {
+            state.Evaluate(reason);
+            Release(reason==FallbackReason.NoPlayer?"camera-unavailable":"missing-model");
+        }
+        [HideFromIl2Cpp] static double ElapsedMs(long started)=>(Stopwatch.GetTimestamp()-started)*1000d/Stopwatch.Frequency;
+        [HideFromIl2Cpp] void RecordPrepare(long started){lastPrepareFrame=Time.frameCount;lastPrepareMs=ElapsedMs(started);}
         [HideFromIl2Cpp] internal void BeginPreCull(FPSCamera fps)
         {
             var local=Local();
@@ -180,24 +373,51 @@ namespace PreLuna.ThirdPerson.Runtime
         }
         [HideFromIl2Cpp] internal void BeforeVisibility(CullingSystem.C_Camera culler)
         {
-            if(!insidePreCull||state.Faulted)return;
+            if(!insidePreCull||state.Faulted||releasing)return;
             var local=Local();
             if(local?.FPSCamera?.m_cullingCamera?.Pointer!=culler.Pointer)return;
             var gate=Gate(local);state.Request(Plugin.Instance.Settings.Enabled.Value);state.Evaluate(gate);
-            if(!state.CanRender){Release();return;}
+            if(!state.CanRender){Release(state.Reason.ToString());return;}
             var item=local.Inventory?.WieldedItem;
-            if(item==null||local.PlayerSyncModel?.ItemAlign==null){state.Evaluate(FallbackReason.MissingModel);Release();return;}
-            PollAim(local);
+            if(!TryReadPresentation(local,item,out var binding,out var missing))
+            {ReleaseUnavailable(missing);return;}
+            if(boundWorld!=default&&binding.World!=boundWorld)
+            {Release("presentation-context-change");return;}
+            if(boundWorld==default){hudProvider?.AbortMain();return;}
+            var nativeA=IsNativeEquipmentA(local,item);
+            var copy=IsEquipmentCopy(item);
+            PollAim(local,gate);
             if(aim.Active&&aim.Gesture.Mode==ViewMode.FirstPersonAim){NativeDisplay("first-person-ads");return;}
-            if(Plugin.Instance.Settings.NativeSyncedHolding.Value&&aim.Active&&item.IsReloading){NativeDisplay("native-reload");return;}
+            if(!nativeA&&!copy&&Plugin.Instance.Settings.NativeSyncedHolding.Value&&aim.Active&&item.IsReloading){NativeDisplay("native-reload");return;}
             // Non-firearm right buttons keep their native scan/charge/deploy/throw meaning.
-            if(AttackFallback(local)){state.Evaluate(FallbackReason.Attack);Release();return;}
-            if(!Bind(local,item)){EndObservation(local,false,"missing-model");EndBodyPresentation();HideItemCamera(false);state.Evaluate(FallbackReason.MissingModel);hudProvider?.AbortMain();return;}
+            var meleeAction=GetMeleeAction(item);
+            var packAction=GetResourcePackAction(item);
+            // GlueGun is a GearClass tool with its own copy-holding path; do not
+            // let SupportsEquipmentHolding classify it as a consumable fallback.
+            bool consumable=UseEquipmentHolding(item)&&!UseGlueGunHolding(item);
+            bool fallback=packAction!=NativeBodyHolding.ResourcePackAction.None
+                ?!nativeHolding.IsShowingResourcePack(item,packAction)
+                :meleeAction!=NativeBodyHolding.MeleeAction.None
+                    ?!nativeHolding.IsShowingMeleeAction(item,meleeAction)
+                    :ConsumableUsesInputFallback(item)&&AttackFallback(local,item);
+            if(consumable&&!nativeHolding.IsShowingEquipment(item,GetConsumableThrow(item),IsPresentingPlacement(item)))fallback=true;
+            if(fallback)
+            {
+                state.Evaluate(FallbackReason.Attack);
+                if(copy)NativeDisplay("equipment-action");else Release("attack-fallback");
+                return;
+            }
+            if(preparedFrame!=Time.frameCount||preparedBinding!=binding)
+            {NativeDisplay(copy?equipmentCopyStatus:"presentation-not-prepared");return;}
             // New/late skins need a native update before their first display.
             // Never activate or enable them here, after LateUpdate/skinning.
-            if(!body.ReadyForMain){EndObservation(local,false,"body-warmup");HideItemCamera(false);detail="body-skinning-warmup";hudProvider?.AbortMain();return;}
+            if(!body.ReadyForMain)
+            {
+                EndObservation(local,false,"body-warmup");HideItemCamera(false);
+                detail="body-skinning-warmup";display=display with{IsThirdPerson=false,Reason=detail};
+                hudProvider?.AbortMain();return;
+            }
             var fps=local.FPSCamera;var camera=fps.m_camera;
-            if(camera==null||!camera.enabled||fps.m_cullingCamera.m_cullAgent?.CurrentNode==null){state.Evaluate(FallbackReason.NoPlayer);Release();return;}
             var settings=Plugin.Instance.Settings.Camera;
             ComputeView(local);
             if(!display.IsThirdPerson)
@@ -224,19 +444,87 @@ namespace PreLuna.ThirdPerson.Runtime
             lastLookRenderFrame=Time.frameCount;
             PublishHudFrame(local);
         }
-        [HideFromIl2Cpp] bool Bind(LocalPlayerAgent local,ItemEquippable item)
+        [HideFromIl2Cpp] bool Bind(LocalPlayerAgent local,ItemEquippable item,PresentationBinding binding)
         {
-            if(player==null||player.Pointer!=local.Pointer||ownerId!=Id(local.Owner)||modelId!=Id(local.PlayerSyncModel))
+            if(boundWorld==default)
             {
-                Release();player=local;ownerId=Id(local.Owner);modelId=Id(local.PlayerSyncModel);state.Bind();lastReleasedBody=null;lastBodyFrame=-1;lastNativeHolding=null;
+                long started=Stopwatch.GetTimestamp();
+                boundWorld=binding.World;player=local;
                 body=new LocalBodyView(local);world.Bind(local.gameObject);firstPerson=new FirstPersonLayerView(local);
+                state.Bind();lastBodyFrame=-1;lastNativeHolding=null;
+                lastBindFrame=Time.frameCount;lastBindMs=ElapsedMs(started);
                 cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;
             }
-            body.Refresh();long previousItem=weapon.ItemIdentity;bool ready=weapon.Bind(item);firstPerson.Bind(item,body);
+            body.Refresh();firstPerson.Bind(item,body);
+            if(IsEquipmentCopy(item))return BindEquipmentCopy(local,item)&&body.RendererCount>0;
+            equipmentCopyStatus="inactive";
+            if(IsNativeEquipmentA(local,item))
+            {
+                weapon.Dispose();meleeSpike.Release();nativeHolding.Release();
+                bool accepted=nativeEquipmentA.Bind(local,item);
+                return accepted&&body.RendererCount>0;
+            }
+            nativeEquipmentA.Release();
+            if(IsMeleeProfile(local,item))
+            {
+                weapon.Dispose();
+                nativeHolding.Release();
+                bool meleeReady=meleeSpike.Bind(local,item);
+                if(!meleeReady)Plugin.Instance.Log.LogWarning("M2近战绑定失败："+meleeSpike.LastStatus);
+                return meleeReady&&body.RendererCount>0;
+            }
+            meleeSpike.Release();
+            long previousItem=weapon.ItemIdentity;bool ready=weapon.Bind(item);
             // A swap after LateUpdate must not draw new equipment with an old
             // holding pose. Prepare and warm up the new binding first.
             if(previousItem!=weapon.ItemIdentity&&Plugin.Instance.Settings.NativeSyncedHolding.Value)body.Warmup();
             return ready&&body.RendererCount>0;
+        }
+        [HideFromIl2Cpp] bool BindEquipmentCopy(LocalPlayerAgent local,ItemEquippable item)
+        {
+            meleeSpike.Release();
+            bool pack=UseResourcePackHolding(item);
+            bool consumable=UseEquipmentHolding(item);
+            if((!UseGlueGunHolding(item)&&!UseMeleeHolding(item)&&!pack&&!consumable)||
+                (nativeHolding.Active&&!nativeHolding.IsBoundTo(item)))nativeHolding.Release();
+            var anchor=local.PlayerSyncModel?.ItemAlign;
+            if(anchor==null){equipmentCopyStatus="copy-hand-anchor-missing";return false;}
+            var modelMode=Plugin.Instance.Settings.MeleeModelSource.Value;
+            // Resource packs without a gear category are spawned by item data, not the gear factory.
+            bool buildEquipment=(pack||consumable&&item.pItemData.slot==InventorySlot.GearClass)
+                &&(item.GearIDRange?.GetCompID(Gear.eGearComponent.Category)??0)!=0;
+            bool native=buildEquipment||item.pItemData.slot==InventorySlot.GearMelee&&modelMode!=MeleeComparisonSource.FirstPerson;
+            bool allowFallback=pack||consumable||modelMode==MeleeComparisonSource.Auto;
+            bool fallback=pack&&!buildEquipment;
+            var source=item;
+            if(native)
+            {
+                nativeEquipmentA.Bind(local,item,true);
+                bool sameItem=nativeEquipmentA.ItemIdentity==item.Pointer.ToInt64();
+                source=sameItem?nativeEquipmentA.CopySource:null;
+                if(source==null)
+                {
+                    if(!sameItem||!allowFallback||!nativeEquipmentA.Failed)
+                    {equipmentCopyStatus="copy-native-source:"+nativeEquipmentA.Status;return false;}
+                    source=item;
+                    fallback=true;
+                }
+            }
+            else if(nativeEquipmentA.Using)nativeEquipmentA.Release();
+            long previousItem=weapon.ItemIdentity;
+            bool correctItem=!(pack||consumable)||source.ItemDataBlock?.persistentID==item.ItemDataBlock.persistentID;
+            bool released=consumable&&GetConsumableThrow(item)==pPlayerThrowStatus.StatusEnum.Throw;
+            bool drawable=correctItem&&weapon.Bind(source,anchor)&&(released||weapon.HasDrawableParts)&&(!(pack||consumable)||weapon.HasRightGrip);
+            if(!drawable&&native&&!fallback&&allowFallback)
+            {
+                nativeEquipmentA.RejectCopy();
+                fallback=true;
+                drawable=weapon.Bind(item,anchor)&&(released||weapon.HasDrawableParts)&&(!(pack||consumable)||weapon.HasRightGrip);
+            }
+            if(!drawable){equipmentCopyStatus="copy-no-drawable-parts";return false;}
+            if(previousItem!=weapon.ItemIdentity)body.Warmup();
+            equipmentCopyStatus=fallback?"copy-first-person-auto-fallback":native?"copy-native-third-person":"copy-first-person";
+            return true;
         }
         [HideFromIl2Cpp] void HideItemCamera(bool hide)
         {
@@ -244,8 +532,24 @@ namespace PreLuna.ThirdPerson.Runtime
         }
         [HideFromIl2Cpp] void ShowMainGraphics()
         {
-            firstPerson.RestoreGraphics();weapon.Show(player,true);body.Show(true,ConvertView.U(display.Position),Plugin.Instance.Settings.BodyFade.Value,Plugin.Instance.Settings.FadeNear,Plugin.Instance.Settings.FadeFar);firstPerson.HideGraphics();
-            lastBodyFrame=Time.frameCount;lastBodyRenderers=body.RendererCount;lastWeaponParts=weapon.PartCount;lastVisibleWeaponParts=weapon.LastVisibleParts;
+            bool showItem=GetConsumableThrow(player?.Inventory?.WieldedItem)!=pPlayerThrowStatus.StatusEnum.Throw;
+            firstPerson.RestoreGraphics();ShowWeapon(showItem);body.Show(true,ConvertView.U(display.Position),Plugin.Instance.Settings.BodyFade.Value,Plugin.Instance.Settings.FadeNear,Plugin.Instance.Settings.FadeFar);firstPerson.HideGraphics();
+            bool copy=equipmentCopyStatus is "copy-first-person" or "copy-native-third-person" or "copy-first-person-auto-fallback";
+            if(manualSnapshotPending&&manualGlueGunPose==null)
+            {
+                var visibleCopy=copy&&showItem&&weapon.LastVisibleParts>0?weapon:null;
+                bool enabled=Plugin.Instance.Settings.EquipmentCopyExperiment.Value;
+                manualGlueGunPose=GlueGunPoseProbe.Capture(player,visibleCopy,enabled);
+                manualMeleePose=GlueGunPoseProbe.Capture(player,visibleCopy,enabled,melee:true);
+                manualResourcePackPose=GlueGunPoseProbe.Capture(player,visibleCopy,enabled,resourcePack:true);
+                manualFlashlightPose=GlueGunPoseProbe.Capture(player,visibleCopy,enabled,flashlight:true);
+            }
+            bool directNative=nativeEquipmentA.Using&&!copy;
+            lastBodyFrame=Time.frameCount;lastBodyRenderers=body.RendererCount;lastWeaponParts=directNative?nativeEquipmentA.PartCount:meleeSpike.Active?meleeSpike.PartCount:weapon.PartCount;lastVisibleWeaponParts=showItem?(directNative?nativeEquipmentA.VisibleParts:meleeSpike.Active?meleeSpike.PartCount:weapon.LastVisibleParts):0;
+            if(copy)lastEquipmentCopyRender=new{frame=Time.frameCount,source=equipmentCopyStatus,
+                item=player?.Inventory?.WieldedItem?.name,anchor=player?.PlayerSyncModel?.ItemAlign?.name,
+                hasRightGrip=weapon.HasRightGrip,visibleParts=lastVisibleWeaponParts,
+                gripPositionError=weapon.GripPositionError,gripRotationError=weapon.GripRotationError};
             lastGripPositionError=weapon.GripPositionError;lastGripRotationError=weapon.GripRotationError;
             lastNativeHolding=nativeHolding.Diagnostics();
             lastMotion=cameraStyle.Motion;lastMotionRig=rig;lastMotionDisplay=display;
@@ -255,7 +559,7 @@ namespace PreLuna.ThirdPerson.Runtime
             if(performance.Active&&camera!=null&&camera.Pointer!=Local()?.FPSCamera?.m_camera?.Pointer)performance.Render(true);
             if(camera!=null)hudProvider?.AuxiliaryBegin(ObjectKey(camera));
             if(scope==null||camera==null||camera.Pointer==player?.FPSCamera?.m_camera?.Pointer)return;
-            if(cameraStack.BeginAuxiliary(camera.Pointer.ToInt64())){bodyPose?.Suspend();scope.Suspend();firstPerson.RestoreGraphics();body.Show(false);weapon.Show(player,false);}
+            if(cameraStack.BeginAuxiliary(camera.Pointer.ToInt64())){bodyPose?.Suspend();scope.Suspend();firstPerson.RestoreGraphics();body.Show(false);ShowWeapon(false);}
         }
         [HideFromIl2Cpp] internal void CameraPreRender(Camera camera)
         {
@@ -281,7 +585,13 @@ namespace PreLuna.ThirdPerson.Runtime
         [HideFromIl2Cpp] internal void BeforeFire(Gear.BulletWeapon item)
         {if(scope!=null&&item?.Owner?.Pointer==player?.Pointer){EndRender();Fault("开火前检测到显示区间，已交还原版");}}
         [HideFromIl2Cpp] void PollAim(LocalPlayerAgent local)
-        {aim.Poll(local,Gate(local)==FallbackReason.None&&Plugin.Instance.Settings.Enabled.Value&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);MaintainObservation(local);}
+            =>PollAim(local,Gate(local));
+        [HideFromIl2Cpp] void PollAim(LocalPlayerAgent local,FallbackReason gate)
+        {
+            if(releasing)return;
+            aim.Poll(local,boundWorld!=default&&gate==FallbackReason.None&&Plugin.Instance.Settings.Enabled.Value&&state.Requested&&!state.Faulted,Plugin.Instance.Settings.DoubleClickWindow.Value);
+            MaintainObservation(local);
+        }
         [HideFromIl2Cpp] internal bool AimInput(FirstPersonItemHolder holder)
         {var local=Local();PollAim(local);return aim.Apply(holder);}
         [HideFromIl2Cpp] internal bool AimButton(ItemEquippable item,bool pressed,out bool value)
@@ -290,7 +600,7 @@ namespace PreLuna.ThirdPerson.Runtime
         {
             EndObservation(Local(),false,why);
             if(!nativeDisplay){cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;solverFrame=-1;}
-            EndBodyPresentation();HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=why};detail=why;
+            EndBodyPresentation();HideItemCamera(false);display=display with{IsThirdPerson=false,Reason=why};detail=why;lastSuspendReason=why;pointerCameraValid=false;
             hudProvider?.AbortMain();RefreshHudBridge();
         }
         [HideFromIl2Cpp] void ComputeView(LocalPlayerAgent local,bool advance=true)
@@ -353,12 +663,15 @@ namespace PreLuna.ThirdPerson.Runtime
             BeforeFire(item);
             var local=Local();
             if(local==null||item?.Owner?.Pointer!=local.Pointer||local.Inventory?.WieldedItem?.Pointer!=item.Pointer)return null;
-            PollAim(local);
+            var gate=Gate(local);
+            PollAim(local,gate);
             // A Fire can precede this component's Update. Transfer before any native or adapted ray.
-            if(lookInput.Orientation.Active)EndObservation(local,Gate(local)==FallbackReason.None&&OwnObservationView(),"fire");
+            if(lookInput.Orientation.Active)EndObservation(local,gate==FallbackReason.None&&OwnObservationView(),"fire");
             if(!aim.Active||state.Faulted)return null;
+            if(!display.IsThirdPerson||lastLookRenderFrame<Time.frameCount-1
+                ||!TryReadPresentation(local,item,out var binding,out _)||preparedBinding!=binding)return null;
             if(aim.Gesture.Mode==ViewMode.FirstPersonAim){NativeDisplay("first-person-ads");return null;}
-            if(!Bind(local,item))return null;aim.Apply(local.FPItemHolder);ComputeView(local,false);
+            aim.Apply(local.FPItemHolder);ComputeView(local,false);
             if(!display.IsThirdPerson)return null;
             UpdateAimSolution(local);
             if(!shotAim.Valid)return null;
@@ -367,11 +680,11 @@ namespace PreLuna.ThirdPerson.Runtime
         }
         public void OnGUI()
         {
+            if(Event.current==null||Event.current.type!=EventType.Repaint)return;
             if(performance.Active&&FocusAllowed())GUI.Label(new Rect(20,20,300,28),"性能采样："+performance.Count+" / "+performance.Capacity+"（再次按采样键结束）");
             if(stopped||!state.CanRender||!FocusAllowed()||!display.IsThirdPerson||display.Frame!=Time.frameCount||aim.Gesture.Mode==ViewMode.FirstPersonAim)return;
-            var interaction=player?.Interaction;
-            if(interaction?.HasWorldInteraction==true&&interaction.m_currentInteractionObj!=null)
-                DrawWorldMarker(interaction.m_currentInteractionObj.transform.position,"○",Color.cyan);
+            // The old cyan marker at m_currentInteractionObj is replaced by the
+            // selected-target marker in DrawPointerOverlay.
             // Keep the native crosshair/spread UI; show the physical obstruction separately.
             if(aim.Active&&shotAim.Valid&&shotAim.Blocked)
             {
@@ -380,6 +693,8 @@ namespace PreLuna.ThirdPerson.Runtime
                 try{GUI.color=Color.yellow;GUI.Label(new Rect(Screen.width/2+24,Screen.height/2+16,240,28),"射线路径受阻");}
                 finally{GUI.color=color;}
             }
+            DrawPointerOverlay();
+            DrawPointerDebug();
         }
         [HideFromIl2Cpp] void DrawWorldMarker(Vector3 point,string text,Color tint)
         {
@@ -402,7 +717,7 @@ namespace PreLuna.ThirdPerson.Runtime
             var recovery=new RestoreJournal();
             recovery.Add(()=>{if(active!=null)active.Dispose();});
             recovery.Add(()=>{if(activePose!=null){activePose.Dispose();lastBodyPoseRestored=activePose.WasRestored;}});
-            recovery.Add(()=>weapon.Show(player,false));recovery.Add(()=>body?.Show(false));recovery.Add(()=>firstPerson?.RestoreGraphics());
+            recovery.Add(()=>ShowWeapon(false));recovery.Add(()=>body?.Show(false));recovery.Add(()=>firstPerson?.RestoreGraphics());
             try{recovery.Dispose();}
             catch{hudProvider?.MainRestored(false);throw;}
             if(active!=null)
@@ -415,30 +730,47 @@ namespace PreLuna.ThirdPerson.Runtime
                 hudProvider?.MainRestored(lastRenderRestored==true&&!state.Faulted);
             }
         }
-        [HideFromIl2Cpp] internal void Release()
+        [HideFromIl2Cpp] void Release(string why)
         {
-            ReleaseObservation();
+            if(releasing)return;
+            recovery.Reset();
             hudProvider?.AbortMain();
-            if(scope==null&&bodyPose==null&&player==null&&body==null&&firstPerson==null&&weapon.ItemIdentity==0){insidePreCull=false;return;}
-            if(body!=null)lastReleasedBody=body.Diagnostics();
-            var cleanup=new RestoreJournal();
-            cleanup.Add(()=>{player=null;ownerId=0;modelId=0;firstPerson=null;body=null;cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();nativeDisplay=true;solverFrame=-1;});
-            cleanup.Add(()=>body?.Dispose());cleanup.Add(()=>weapon.Dispose());cleanup.Add(()=>firstPerson?.Dispose());cleanup.Add(nativeHolding.Release);cleanup.Add(EndRender);
-            cleanup.Dispose();
+            bool hadBinding=boundWorld!=default||scope!=null||bodyPose!=null;
+            if(!hadBinding&&!aim.Active&&!lookInput.Orientation.Active){insidePreCull=false;return;}
+            releasing=true;
+            long started=Stopwatch.GetTimestamp();
+            try
+            {
+                using var cleanup=new RestoreJournal();
+                cleanup.Add(()=>body?.Dispose());cleanup.Add(weapon.Dispose);cleanup.Add(meleeSpike.Release);
+                cleanup.Add(nativeEquipmentA.Release);cleanup.Add(()=>firstPerson?.Dispose());cleanup.Add(nativeHolding.Release);
+                cleanup.Add(aim.Cancel);
+                cleanup.Add(()=>ReleaseObservation(why is nameof(FallbackReason.Disabled) or "reset"));
+                cleanup.Add(()=>{if(scope!=null||bodyPose!=null)EndRender();});
+            }
+            finally
+            {
+                player=null;firstPerson=null;body=null;boundWorld=default;preparedBinding=default;preparedFrame=-1;
+                pointerCameraValid=false;insidePreCull=false;nativeDisplay=true;solverFrame=-1;
+                cameraStyle.Reset(true,Plugin.Instance.Settings.Camera.MinimumDistance+.15f);collisionSolver.Reset();environment.Reset();
+                display=display with{IsThirdPerson=false,Reason=why};detail=why;
+                if(hadBinding){releaseCount++;lastReleaseReason=why;lastReleaseFrame=Time.frameCount;lastReleaseMs=ElapsedMs(started);}
+                releasing=false;
+            }
         }
         [HideFromIl2Cpp] internal void LevelCleanup()
         {
             ResetHudContext();
             Exception failure=null;
-            try{using var cleanup=new RestoreJournal();cleanup.Add(Release);cleanup.Add(aim.Cancel);}
+            try{Release("level-cleanup");}
             catch(Exception error){state.Fail();detail="level-cleanup-failed";failure=error;}
-            finally{context.Reset();ResetObservationFeedback();levelCleanups++;EndPerformance("level-cleanup");TrySnapshot("level-cleanup");Plugin.Instance?.Log.LogInfo("关卡清理结束："+levelCleanups+"；渲染/恢复="+renders+"/"+restores+"；成功="+(failure==null));}
+            finally{context.Reset();ResetObservationFeedback();levelCleanups++;EndPerformance("level-cleanup");Plugin.Instance?.Log.LogInfo("关卡清理结束："+levelCleanups+"；渲染/恢复="+renders+"/"+restores+"；成功="+(failure==null));}
             if(failure!=null)throw failure;
         }
         [HideFromIl2Cpp] internal void Guard(Action action)
         {try{action();}catch(Exception error){Recover(error);}}
         [HideFromIl2Cpp] internal void Recover(Exception error)
-        {try{Release();}catch(Exception restore){Plugin.Instance?.Log.LogError("恢复失败："+restore);}Fault(error.GetBaseException().Message);}
+        {try{Release("fault");}catch(Exception restore){Plugin.Instance?.Log.LogError("恢复失败："+restore);}Fault(error.GetBaseException().Message);}
         [HideFromIl2Cpp] void Fault(string why)
         {try{aim.Cancel();}finally{state.Fail();detail=why;RefreshHudBridge();Plugin.Instance?.Log.LogError("第三人称已停用："+why);}}
         [HideFromIl2Cpp] void ReportReason()
@@ -447,19 +779,40 @@ namespace PreLuna.ThirdPerson.Runtime
         {
             string root=Path.Combine(Paths.BepInExRootPath,"ThirdPerson-P5-诊断");Directory.CreateDirectory(root);
             var motion=cameraStyle.Motion;
-            var data=new{schemaVersion=5,utc=DateTime.UtcNow.ToString("o"),pluginVersion=Plugin.Version,gameRevision=Plugin.GameRevision,sessionId,processId=Environment.ProcessId,captureReason,
+            var probeLocal=Local();
+            var probeItem=probeLocal?.Inventory?.WieldedItem;
+            var data=new{schemaVersion=6,utc=DateTime.UtcNow.ToString("o"),pluginVersion=Plugin.Version,gameRevision=Plugin.GameRevision,sessionId,processId=Environment.ProcessId,captureReason,
                 frame=Time.frameCount,fixedTime=Time.fixedTime,requested=state.Requested,faulted=state.Faulted,reason=state.Reason.ToString(),detail,
-                gameState=GameStateManager.CurrentStateName.ToString(),levelCleanups,generation=state.Generation,player=Id(player),owner=ownerId,item=weapon.ItemIdentity,bodyRenderers=body?.RendererCount??0,weaponParts=weapon.PartCount,bodyMode="world-pinned-local-model",gripPoseAdapted=true,
+                gameState=GameStateManager.CurrentStateName.ToString(),scene=SceneName(),levelCleanups,generation=state.Generation,player=Id(player),owner=boundWorld.Context.Owner,item=nativeEquipmentA.Using?nativeEquipmentA.ItemIdentity:weapon.ItemIdentity,bodyRenderers=body?.RendererCount??0,weaponParts=nativeEquipmentA.Using?nativeEquipmentA.PartCount:weapon.PartCount,bodyMode="world-pinned-local-model",gripPoseAdapted=true,
+                lastSuspendReason,lifecycle=LifecycleDiagnostics(),
+                stall=new{enabled=Plugin.Instance.Settings.StallSnapshot.Value,thresholdMs=Plugin.Instance.Settings.StallThresholdMs.Value,cooldownSeconds=Plugin.Instance.Settings.StallCooldownSeconds.Value,lastFrameMs=lastStallFrameMs,autoSnapshots=stallAutoSnapshots},
+                fourSevenProbe=FourSevenProbe.Capture(probeLocal,probeItem,firstPerson,weapon,body,nativeHolding),
+                meleeShove=nativeHolding.ShoveDiagnostics(),
+                meleeAttack=nativeHolding.MeleeAttackDiagnostics(),
+                resourcePack=nativeHolding.ResourcePackDiagnostics(),
+                consumable=nativeHolding.ConsumableDiagnostics(),
+                meleeSpike=meleeSpike.Diagnostics(),
+                nativeEquipmentA=nativeEquipmentA.Diagnostics(),
+                equipmentCopy=new{status=equipmentCopyStatus,lastRender=lastEquipmentCopyRender},
+                glueGunPose=captureReason=="manual"?(manualGlueGunPose??
+                    GlueGunPoseProbe.Capture(probeLocal,null,Plugin.Instance.Settings.EquipmentCopyExperiment.Value)):null,
+                meleePose=captureReason=="manual"?(manualMeleePose??
+                    GlueGunPoseProbe.Capture(probeLocal,null,Plugin.Instance.Settings.EquipmentCopyExperiment.Value,melee:true)):null,
+                resourcePackPose=captureReason=="manual"?(manualResourcePackPose??
+                    GlueGunPoseProbe.Capture(probeLocal,null,Plugin.Instance.Settings.EquipmentCopyExperiment.Value,resourcePack:true)):null,
+                flashlightPose=captureReason=="manual"?(manualFlashlightPose??
+                    GlueGunPoseProbe.Capture(probeLocal,null,Plugin.Instance.Settings.EquipmentCopyExperiment.Value,flashlight:true)):null,
                 lastModelRender=new{frame=lastBodyFrame,bodyRenderers=lastBodyRenderers,weaponParts=lastWeaponParts,visibleWeaponParts=lastVisibleWeaponParts,cameraLinked=lastBodyCameraLinked,pinnedTransforms=lastPinnedBodyTransforms,
                     nativeBodyHolding=lastNativeHolding,
                     nativeGripPose=new{status=lastBodyPoseStatus,rightArm=lastRightArmApplied,leftArm=lastLeftArmApplied,rightClamped=lastRightArmClamped,leftClamped=lastLeftArmClamped,rightGripError=lastRightArmGripError,leftGripError=lastLeftArmGripError,restored=lastBodyPoseRestored},
                     bodyBefore=lastBodyPosition.ToString(),bodyDuring=lastDisplayBodyPosition.ToString(),neckBefore=lastNeckPosition.ToString(),neckDuring=lastDisplayNeckPosition.ToString(),
                     scaleBefore=lastBodyFrame<0?(BodyScaleSnapshot?)null:lastBodySizeBefore,scaleDuring=lastBodyFrame<0?(BodyScaleSnapshot?)null:lastBodySizeDuring,
-                    gripPositionError=lastGripPositionError,gripRotationError=lastGripRotationError,body=body?.Diagnostics()??lastReleasedBody},
+                    gripPositionError=lastGripPositionError,gripRotationError=lastGripRotationError,body=body?.Diagnostics()},
                 scopeActive=scope!=null,scopeSuspended=scope?.Suspended??false,scopeFrame,lastRenderRestored,auxiliaryCameras=cameraStack.AuxiliaryCount,itemCameraHidden=firstPerson?.CamerasHidden??false,firstPerson=firstPerson?.Diagnostics(),renders,restores,collisionFallbacks,audioHandling,collisionBufferSaturated=world.BufferSaturated,
                 hudBridge=HudBridgeDiagnostics(),
                 logical=new{logical.Frame,logical.FixedTime,body=logical.Body.ToString(),eye=logical.Eye.ToString(),forward=logical.Forward.ToString()},
                 display=new{display.Frame,position=display.Position.ToString(),display.Radius,display.IsThirdPerson,display.Reason,display.ClearanceDistance,constrainedPivot=display.ConstrainedPivot?.ToString()},
+                pointer=PointerSnapshot(),
                 aim=new{active=aim.Active,mode=aim.Gesture.Mode.ToString(),pendingExit=aim.Gesture.PendingExit,equipment=aim.Equipment,adaptedShots,valid=shotAim.Valid,blocked=shotAim.Blocked,reason=shotAim.Reason,origin=shotAim.Origin.ToString(),target=shotAim.Target.ToString()},
                 style=new{preset=Plugin.Instance.Settings.Preset.Value.ToString(),leftShoulder=Plugin.Instance.Settings.LeftShoulder.Value,activity=rig.Activity.ToString(),rig.Distance,rig.Shoulder,rig.VerticalFov,rig.Feedback,compressedShoulder=collisionSolver.CompressedShoulder,environmentBlocked=environment.Blocked,nativeDisplay,bodyFade=body?.FadeDiagnostics},
                 cameraStages=CameraStagesDiagnostics(),
@@ -491,6 +844,11 @@ namespace PreLuna.ThirdPerson.Runtime
             }
         }
         [HideFromIl2Cpp] void TrySnapshot(string reason="manual"){try{Snapshot(reason);}catch(Exception e){Plugin.Instance?.Log.LogWarning("诊断未写出："+e.GetBaseException().Message);}}
+        [HideFromIl2Cpp] object LifecycleDiagnostics()=>new
+        {
+            boundWorld,preparedBinding,preparedFrame,releaseCount,lastReleaseReason,lastReleaseFrame,lastReleaseMs,
+            lastBindFrame,lastBindMs,lastPrepareFrame,lastPrepareMs,lastWarmupFrame
+        };
         [HideFromIl2Cpp] long TotalQueries()=>world.TotalQueries+aimWorld.TotalQueries;
         [HideFromIl2Cpp] void TickPerformance(FallbackReason gate)
         {
@@ -511,6 +869,31 @@ namespace PreLuna.ThirdPerson.Runtime
             performance.BeginFrame(Time.frameCount,Time.unscaledDeltaTime*1000,config.Enabled.Value,gate==FallbackReason.None,TotalQueries());
             if(!performance.Active)EndPerformance("capacity-reached");
         }
+        [HideFromIl2Cpp] void TickStallSnapshot(FallbackReason gate)
+        {
+            double now=Time.realtimeSinceStartup;
+            if(double.IsNaN(lastStallFrameAt)){lastStallFrameAt=now;return;}
+            double deltaMs=(now-lastStallFrameAt)*1000;lastStallFrameAt=now;
+            var config=Plugin.Instance.Settings;
+            if(!config.StallSnapshot.Value||stallAutoSnapshots>=8)return;
+            if(deltaMs<config.StallThresholdMs.Value||!state.Requested||state.Faulted
+                ||GameStateManager.CurrentStateName!=eGameStateName.InLevel)return;
+            if(now-lastStallSnapshotAt<config.StallCooldownSeconds.Value||stallWrite?.IsCompleted==false)return;
+            lastStallSnapshotAt=now;lastStallFrameMs=(float)deltaMs;stallAutoSnapshots++;
+            var utc=DateTime.UtcNow;
+            string root=Path.Combine(Paths.BepInExRootPath,"ThirdPerson-P5-诊断");
+            string file=Path.Combine(root,"卡顿-"+utc.ToString("yyyyMMdd-HHmmss-fff")+"-"+sessionId+".json");
+            var data=new{schemaVersion=1,utc,pluginVersion=Plugin.Version,sessionId,frame=Time.frameCount,
+                frameMs=lastStallFrameMs,gate=gate.ToString(),reason=state.Reason.ToString(),detail,
+                generation=state.Generation,renders,restores,lifecycle=LifecycleDiagnostics()};
+            var log=Plugin.Instance.Log;
+            // Only managed values cross the thread boundary. F8 still collects the full Unity snapshot.
+            stallWrite=Task.Run(()=>
+            {
+                try{Directory.CreateDirectory(root);File.WriteAllText(file,JsonSerializer.Serialize(data));}
+                catch(Exception error){log.LogWarning("卡顿记录未写出："+error.GetBaseException().Message);}
+            });
+        }
         [HideFromIl2Cpp] void EndPerformance(string reason)
         {
             if(!performanceRequested)return;performance.Stop(TotalQueries());performanceRequested=false;
@@ -529,7 +912,7 @@ namespace PreLuna.ThirdPerson.Runtime
         {
             if(stopped)return;stopped=true;
             StopHudBridge();
-            using var cleanup=new RestoreJournal();cleanup.Add(()=>{EndPerformance("plugin-stop");TrySnapshot("plugin-stop");});cleanup.Add(Release);cleanup.Add(aim.Cancel);
+            using var cleanup=new RestoreJournal();cleanup.Add(()=>EndPerformance("plugin-stop"));cleanup.Add(()=>Release("plugin-stop"));
         }
         public void OnDestroy(){Guard(Stop);}
     }

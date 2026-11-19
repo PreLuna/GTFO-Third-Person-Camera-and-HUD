@@ -17,17 +17,22 @@ namespace PreLuna.ThirdPerson.Body
         readonly List<GameObject> ownedObjects=new();
         GameObject root;
         ItemEquippable item;
+        Transform gripAnchor;
         float nextRefresh;
         internal int LastVisibleParts {get;private set;}
         internal float GripPositionError {get;private set;}
         internal float GripRotationError {get;private set;}
         internal int PartCount=>parts.Count;
+        internal bool HasDrawableParts=>parts.Exists(p=>p.Source!=null&&p.Source.enabled&&p.Source.gameObject.activeInHierarchy);
+        internal bool HasRightGrip=>item!=null&&item.RightHandGripTrans!=null;
         internal long ItemIdentity=>item==null?0:item.Pointer.ToInt64();
         internal Transform AimReference=>root==null?null:root.transform;
-        internal bool Bind(ItemEquippable current)
+        internal ItemEquippable VisualSource=>item;
+        internal bool Bind(ItemEquippable current,Transform anchor=null)
         {
             if(current==null)throw new InvalidOperationException("本机装备尚未就绪");
-            if(current.Pointer.ToInt64()!=ItemIdentity){Dispose();item=current;}
+            bool sameAnchor=anchor==null?gripAnchor==null:gripAnchor!=null&&gripAnchor.Pointer==anchor.Pointer;
+            if(current.Pointer.ToInt64()!=ItemIdentity||!sameAnchor){Dispose();item=current;gripAnchor=anchor;}
             else if(Time.unscaledTime<nextRefresh)return parts.Count>0;
             nextRefresh=Time.unscaledTime+.5f;
             try
@@ -36,7 +41,6 @@ namespace PreLuna.ThirdPerson.Body
                 {
                     root=new GameObject("PreLuna.ThirdPerson.WorldWeapon"){hideFlags=HideFlags.HideAndDontSave};
                     ownedObjects.Add(root);ResourceLedger.Create(OwnedResource.VisualObject);
-                    root.SetActive(false);
                 }
                 var liveSources=new HashSet<long>();
                 foreach(var source in item.GetComponentsInChildren<Renderer>(true))
@@ -57,6 +61,7 @@ namespace PreLuna.ThirdPerson.Body
                     ownedObjects.Add(node);ResourceLedger.Create(OwnedResource.VisualObject);
                     node.transform.SetParent(root.transform,false);
                     var filter=node.AddComponent<MeshFilter>();var target=node.AddComponent<MeshRenderer>();
+                    target.forceRenderingOff=true;
                     target.sharedMaterials=source.sharedMaterials;target.shadowCastingMode=ShadowCastingMode.On;
                     var part=new Part{Source=source,Target=target,Filter=filter,Skin=skin};parts.Add(part);
                     if(skin!=null){part.Baked=new Mesh{name="ThirdPerson.BakedWeapon"};ResourceLedger.Create(OwnedResource.Mesh);part.Baked.MarkDynamic();filter.sharedMesh=part.Baked;}
@@ -66,7 +71,7 @@ namespace PreLuna.ThirdPerson.Body
                 {
                     if(stale.Target!=null)
                     {
-                        stale.Target.enabled=false;ownedObjects.Remove(stale.Target.gameObject);
+                        SetVisible(stale.Target,false);ownedObjects.Remove(stale.Target.gameObject);
                         UnityEngine.Object.Destroy(stale.Target.gameObject);ResourceLedger.Release(OwnedResource.VisualObject);
                     }
                     if(stale.Baked!=null){UnityEngine.Object.Destroy(stale.Baked);ResourceLedger.Release(OwnedResource.Mesh);}
@@ -81,28 +86,43 @@ namespace PreLuna.ThirdPerson.Body
         internal void Show(LocalPlayerAgent player,bool visible)
         {
             if(root==null)return;
-            if(!visible){if(root.activeSelf)root.SetActive(false);return;}
+            // Camera passes only change drawing. Keep the owned mesh renderers
+            // registered while the binding is live.
+            if(!visible){HideParts();return;}
             UpdatePose(player);
             var origin=item.transform;
             LastVisibleParts=0;
             foreach(var p in parts)
             {
-                if(p.Source==null){p.Target.enabled=false;continue;}
+                if(p.Target==null)continue;
+                if(p.Source==null){SetVisible(p.Target,false);continue;}
                 var source=p.Source.transform;var target=p.Target.transform;
                 target.localPosition=origin.InverseTransformPoint(source.position);
                 target.localRotation=Quaternion.Inverse(origin.rotation)*source.rotation;
                 var a=source.lossyScale;var b=origin.lossyScale;
                 target.localScale=new Vector3(SafeRatio(a.x,b.x),SafeRatio(a.y,b.y),SafeRatio(a.z,b.z));
-                p.Target.enabled=p.Source.enabled&&p.Source.gameObject.activeInHierarchy;
-                if(p.Target.enabled)LastVisibleParts++;
-                if(p.Skin!=null&&p.Target.enabled)p.Skin.BakeMesh(p.Baked);
+                bool draw=p.Source.enabled&&p.Source.gameObject.activeInHierarchy;
+                if(draw)
+                {
+                    if(p.Skin!=null)p.Skin.BakeMesh(p.Baked);
+                    LastVisibleParts++;
+                }
+                SetVisible(p.Target,draw);
             }
-            if(!root.activeSelf)root.SetActive(true);
+        }
+        void HideParts()
+        {
+            foreach(var part in parts)if(part.Target!=null)SetVisible(part.Target,false);
+        }
+        static void SetVisible(Renderer renderer,bool visible)
+        {
+            bool off=!visible;
+            if(renderer.forceRenderingOff!=off)renderer.forceRenderingOff=off;
         }
         internal void UpdatePose(LocalPlayerAgent player)
         {
             if(root==null)return;
-            var align=player.PlayerSyncModel?.ItemAlign;
+            var align=gripAnchor??player.PlayerSyncModel?.ItemAlign;
             if(align==null||item==null)throw new InvalidOperationException("本机世界武器连接点失效");
             var origin=item.transform;
             // Match the native synced equipment parent. The owned graphics root
@@ -139,10 +159,10 @@ namespace PreLuna.ThirdPerson.Body
         public void Dispose()
         {
             using var cleanup=new RestoreJournal();
-            cleanup.Add(()=>{parts.Clear();ownedObjects.Clear();root=null;item=null;nextRefresh=0;LastVisibleParts=0;GripPositionError=GripRotationError=0;});
+            cleanup.Add(()=>{parts.Clear();ownedObjects.Clear();root=null;item=null;gripAnchor=null;nextRefresh=0;LastVisibleParts=0;GripPositionError=GripRotationError=0;});
             foreach(var node in ownedObjects)cleanup.Add(()=>{if(node!=null)UnityEngine.Object.Destroy(node);ResourceLedger.Release(OwnedResource.VisualObject);});
             foreach(var p in parts)if(p.Baked!=null)cleanup.Add(()=>{UnityEngine.Object.Destroy(p.Baked);ResourceLedger.Release(OwnedResource.Mesh);});
-            cleanup.Add(()=>{if(root!=null)root.SetActive(false);});
+            cleanup.Add(HideParts);
         }
     }
 }

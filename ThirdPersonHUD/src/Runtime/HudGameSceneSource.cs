@@ -83,6 +83,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             CaptureMarkers(request,local);
             return new(interaction,supply,mission,countdown,scan,sceneMarkers[0],sceneMarkers[1],sceneMarkers[2],sceneMarkers[3],sceneMarkers[4],sceneMarkers[5]);
         }
+        static HudWorldPoint World(UnityEngine.Vector3 value)=>new(value.x,value.y,value.z);
         HudValueStamp SceneStamp(in HudContentCaptureRequest request,ObjectIdentity key,long revision)
             =>HudValueStamp.AtCapture(request,key) with{SubjectRevision=revision};
         HudInteractionSnapshot CaptureInteraction(in HudContentCaptureRequest request,LocalPlayerAgent local)
@@ -108,8 +109,17 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 var key=Missing<HudText>(HudValueState.Unreadable,stamp);
                 var mapper=InputMapper.Current;
                 if(mapper?.m_currentKeyMouseMap!=null)key=Known(new HudText(mapper.DoGetBindingName(target.InputAction,mapper.m_currentKeyMouseMap)),stamp);
+                var position=Missing<HudWorldPoint>(HudValueState.Unsupported,stamp);
+                try
+                {
+                    var root=target.Root;
+                    if(root!=null)position=Known(World(root.position),stamp);
+                    else if(target.m_colliderToOwn!=null)position=Known(World(target.m_colliderToOwn.bounds.center),stamp);
+                    else position=Known(World(target.transform.position),stamp);
+                }
+                catch{}
                 if(Key(controller.m_bestSelectedInteract?.TryCast<Interact_Base>())!=stamp.Source||!target.IsSelected||!target.IsActive||target.IsBlocked)return default;
-                return new(subject,name,action,key,progress);
+                return new(subject,name,action,key,progress,position);
             }
             catch{return default;}
         }
@@ -127,8 +137,10 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 var uses=Missing<HudQuantity>(HudValueState.Unreadable,stamp);
                 try{if(bag?.AmmoStorage!=null&&Id(bag.Owner)==Id(local.Owner)&&HudNumberRules.TryCount(bag.AmmoStorage.GetBulletsInPack(pack.AmmoType),HudUnit.Uses,out var q))uses=Known(q,stamp);}catch{}
                 var progress=HudNumberRules.TryProgress(timer.InteractionTimerRel,out var pg)?Known(pg,stamp):Missing<HudQuantity>(HudValueState.Invalid,stamp);
+                var position=Missing<HudWorldPoint>(HudValueState.Unsupported,stamp);
+                try{var p=receiver.transform.position;position=Known(new HudWorldPoint(p.x,p.y+1.2f,p.z),stamp);}catch{}
                 var row=new HudSupplySnapshot(Known(new HudSceneSubject(Key(pack),recipient.Agent,supplyRevision),stamp),Known(new HudText(pack.PublicName),stamp),
-                    Known(new HudRecipient(recipient,receiver.Owner!.NickName,recipient==PlayerKey(local)),stamp),uses,progress);
+                    Known(new HudRecipient(recipient,receiver.Owner!.NickName,recipient==PlayerKey(local)),stamp),uses,progress,position);
                 return Key(pack.m_actionReceiver?.TryCast<PlayerAgent>())==recipient.Agent&&PlayerKey(receiver)==recipient&&Key(local.Inventory?.WieldedItem)==stamp.Source?row:default;
             }
             catch{return default;}

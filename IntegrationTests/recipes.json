@@ -126,6 +126,18 @@
     ]
   },
   {
+    "Name": "PresentationRecoveryTests",
+    "Sources": [
+      "ThirdPerson/src/Core/ViewContracts.cs",
+      "ThirdPerson/src/Core/ContextTracker.cs",
+      "ThirdPerson/src/Core/PresentationRecovery.cs",
+      "ThirdPerson/tests/PresentationRecoveryTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/PresentationRecoveryTests.json"
+    ]
+  },
+  {
     "Name": "NativeHoldingTests",
     "Sources": [
       "ThirdPerson/src/Core/ViewContracts.cs",
@@ -325,7 +337,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/CollectionPipelineTests.json"
@@ -383,7 +397,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/LifecycleTests.json"
@@ -441,7 +457,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/WorkBudgetTests.json"
@@ -499,7 +517,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/AsyncExecutionTests.json"
@@ -557,7 +577,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/IntegrationScenarios.json"
@@ -615,7 +637,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/PanelTests.json"
@@ -673,7 +697,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/PanelRuntimeTests.json"
@@ -731,7 +757,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/PersonalReadoutTests.json"
@@ -789,7 +817,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/PersonalRuntimeTests.json"
@@ -847,7 +877,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/AlertTests.json"
@@ -905,7 +937,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/ReplacementTests.json"
@@ -963,7 +997,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/TeamTests.json"
@@ -1021,7 +1057,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/SceneTests.json"
@@ -1079,7 +1117,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/DivisionHudTests.json"
@@ -1137,7 +1177,9 @@
       "ThirdPersonHUD/src/Panel/HudDivisionProjection.cs",
       "ThirdPersonHUD/src/Panel/HudPlaneTransform.cs",
       "ThirdPersonHUD/src/Panel/HudClassicDrawing.cs",
-      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs"
+      "ThirdPersonHUD/src/Panel/HudClassicProjection.cs",
+      "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs"
     ],
     "Arguments": [
       "out/tests/ClassicHudTests.json"
@@ -1185,6 +1227,17 @@
     ],
     "Arguments": [
       "out/tests/ThirdPersonControlStateTests.json"
+    ]
+  },
+  {
+    "Name": "PointerProjectionTests",
+    "Sources": [
+      "Shared/ThirdPerson.Contracts/src/ThirdPersonContracts.cs",
+      "ThirdPerson/src/Core/PointerProjection.cs",
+      "ThirdPerson/tests/PointerProjectionTests.cs"
+    ],
+    "Arguments": [
+      "out/tests/PointerProjectionTests.json"
     ]
   }
 ]

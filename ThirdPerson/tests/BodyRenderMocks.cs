@@ -193,6 +193,7 @@ namespace UnityEngine
         public void SetLayerWeight(int layer,float w){if(!AllowPlayback)throw new Exception("FPS/native animation weight modified");Weights[layer]=w;WeightCalls++;}
         public AnimatorStateInfo GetCurrentAnimatorStateInfo(int layer)=>States.TryGetValue(layer,out var s)?s:default;
         public void Play(int state,int layer,float time){if(!AllowPlayback)throw new Exception("FPS/native animation state modified");if(ThrowOnPlay||layer==ThrowOnLayer)throw new Exception("injected animator failure");States[layer]=new(){fullPathHash=state,shortNameHash=state,normalizedTime=time,length=1,speed=1,speedMultiplier=1};PlayCalls++;}
+        public void CrossFadeInFixedTime(int state,float duration,int layer,float offset,float transitionTime)=>Play(state,layer,offset);
         public Transform GetBoneTransform(HumanBodyBones b)=>Bones.TryGetValue(b,out var t)?t:null;
         public void Update(float dt)=>throw new Exception("Native animation must not be re-evaluated for display");
         public void Play(string state)=>throw new Exception("Native animation state must not be replaced for display");
@@ -208,19 +209,53 @@ public class PlayerFPSBody
 public class FirstPersonItemHolder
 {public UnityEngine.Camera m_ItemLayerCamera;public PlayerFPSBody FPSArms;public UnityEngine.Animator m_fpsItemAnim;}
 public class ItemEquippable:UnityEngine.Component
-{public UnityEngine.Transform RightHandGripTrans,LeftHandGripTrans;public string LeftHandGripAnim="LeftGrip",RightHandGripAnim="RightGrip";public GameData.ItemDataBlock ItemDataBlock=new();public Player.pItemData pItemData=new(){slot=Player.InventorySlot.GearSpecial};public bool IsReloading;}
+{public UnityEngine.Transform RightHandGripTrans,LeftHandGripTrans;public string LeftHandGripAnim="LeftGrip",RightHandGripAnim="RightGrip";public GameData.ItemDataBlock ItemDataBlock=new();public Player.pItemData pItemData=new(){slot=Player.InventorySlot.GearSpecial};public bool IsReloading;public string ThirdPersonFullbodyMovement="Spear";public Gear.GearIDRange GearIDRange;}
+public class GlueGun:ItemEquippable{}
 namespace Gear
-{public class BulletWeapon:ItemEquippable{public float m_lastFireTime;public int m_clip=10;}public class Shotgun:BulletWeapon{}public class RifleWeapon:BulletWeapon{}}
+{
+    public class BulletWeapon:ItemEquippable{public float m_lastFireTime;public int m_clip=10;}
+    public class Shotgun:BulletWeapon{}
+    public class RifleWeapon:BulletWeapon{}
+    public class MeleeWeaponFirstPerson:ItemEquippable{}
+    public class ResourcePackFirstPerson:ItemEquippable
+    {
+        public Interact_ManualTimedWithCallback m_interactApplyResource;
+        public iResourcePackReceiver m_actionReceiver;
+    }
+    public class iResourcePackReceiver {public bool IsLocallyOwned;}
+    public enum eMeleeWeaponState { None, Idle, Hitreact, AttackMissLeft, AttackMissRight, AttackHitLeft, AttackHitRight,
+        AttackChargeUpLeft, AttackChargeReleaseLeft, AttackChargeUpRight, AttackChargeReleaseRight, AttackChargeHitLeft,
+        AttackChargeHitRight, Push, CancelChargeToIdleLeft, CancelChargeToIdleRight }
+    public enum eGearComponent { Category }
+    public class GearIDRange {public uint Category;public uint GetCompID(eGearComponent component)=>Category;}
+}
+public class Interact_ManualTimedWithCallback {public bool TimerIsActive;}
 namespace GameData
-{public class ItemDataBlock{public Player.InventorySlot inventorySlot=Player.InventorySlot.GearSpecial;}}
+{
+    public class ItemDataBlock{public Player.InventorySlot inventorySlot=Player.InventorySlot.GearSpecial;public uint persistentID;public string publicName;public string GetName()=>publicName;}
+    public class GameDataBlockBase<T> where T:class
+    {
+        public static readonly Dictionary<uint,T> Blocks=new();
+        public static T GetBlock(uint id)=>Blocks.TryGetValue(id,out T block)?block:null;
+    }
+    public class GearCategoryDataBlock {public uint MeleeArchetype;}
+    public class MeleeArchetypeDataBlock {public uint MeleeAnimationSet;}
+    public class MeleeAnimationSetDataBlock
+    {
+        public class AnimHash {public string Name;public int GetHash()=>UnityEngine.Animator.StringToHash(Name);}
+        public AnimHash TPAnimHashAttackLeft,TPAnimHashAttackLeftCrouch,TPAnimHashAttackLeftCharge,TPAnimHashAttackLeftChargeCrouch,
+            TPAnimHashAttackLeftRelease,TPAnimHashAttackLeftReleaseCrouch,TPAnimHashIdle,TPAnimHashIdleCrouch;
+    }
+}
 namespace Player
 {
-    public enum InventorySlot{None,GearStandard,GearSpecial,GearClass,ResourcePack,GearMelee=10}
+    public enum InventorySlot{None,GearStandard,GearSpecial,GearClass,ResourcePack,Consumable,ConsumableHeavy,InPocket,InLevelCarry,Pickup,GearMelee,HackingTool}
+    public struct pPlayerThrowStatus {public enum StatusEnum {None,Charging,Throw}}
     public struct pItemData{public InventorySlot slot;}
     public class PlayerAgent:UnityEngine.Component
     {public const int ANIM_LAYER_FULL_BODY=1,ANIM_LAYER_3RD_AIM_OFFSET=4,ANIM_LAYER_3RD_UPPERBODY=5,ANIM_LAYER_3RD_ADDITIVE=6,ANIM_LAYER_LEFT_HAND=7,ANIM_LAYER_RIGHT_HAND=8;}
     public class PlayerLocomotion
-    {public enum ePlayerAnimation{Movement}public string Movement="Rifle_Movement";public string GetAnimationForWielded(ePlayerAnimation animation)=>Movement;}
+    {public enum ePlayerAnimation{Movement}public string Movement="Rifle_Movement";public float Crouch;public float GetCrouch()=>Crouch;public string GetAnimationForWielded(ePlayerAnimation animation)=>Movement;}
     public class LocalPlayerAgent:PlayerAgent
     {public PlayerSyncModelData PlayerSyncModel;public UnityEngine.Animator AnimatorBody,AnimatorArms;public PlayerSyncIK SyncIK;public PlayerLocomotion Locomotion=new();public FPSCamera FPSCamera;public FirstPersonItemHolder FPItemHolder;}
     public class PlayerSyncIK
@@ -272,8 +307,18 @@ namespace RootMotion.FinalIK
 namespace CullingSystem
 {
     public class C_Camera:UnityEngine.Component
-    {public static UnityEngine.Vector3 Position,Forward,Right,Up;public bool Throw;public void RunVisibility(){if(Throw)throw new Exception("native visibility failure");}}
-    public static class C_CullingManager{public static void C_CameraUpdate(){}public static void SortAndUpdateLights(){}}
+    {
+        public static UnityEngine.Vector3 Position,Forward,Right,Up;
+        public int VisibilityRuns {get;private set;}
+        public void RunVisibility()=>VisibilityRuns++;
+    }
+    public static class C_CullingManager
+    {
+        public static int CameraUpdates {get;private set;}
+        public static int LightSorts {get;private set;}
+        public static void C_CameraUpdate()=>CameraUpdates++;
+        public static void SortAndUpdateLights()=>LightSorts++;
+    }
 }
 public static class CameraManager{public static UnityEngine.Vector3 CullingPosition,CullingDirection;public static float CullingFov;}
 public static class LayerManager{public const int LAYER_THIRD_PERSON_ITEM=9,LAYER_FIRST_PERSON_ITEM=10;}

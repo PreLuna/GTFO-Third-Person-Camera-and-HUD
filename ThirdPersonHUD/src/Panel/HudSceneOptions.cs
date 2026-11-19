@@ -15,6 +15,8 @@ namespace PreLuna.ThirdPersonHUD.Panel
         public bool Pings { get; init; }
         public bool Detected { get; init; }
         public bool ReplaceCountdown { get; init; }
+        public bool ShortPrompt { get; init; }
+        public bool HideNativePrompt { get; init; }
         public int MaximumMarkers { get; init; }
         public int CandidateLimit { get; init; }
         public float MaximumDistance { get; init; }
@@ -25,7 +27,7 @@ namespace PreLuna.ThirdPersonHUD.Panel
         public float ScreenMargin { get; init; }
         public float MarkerCrosshairRadius { get; init; }
         public static HudSceneOptions Default => new(){Enabled=true,Interaction=true,Supply=true,Mission=true,Scan=true,Markers=true,
-            Rescue=true,Pings=true,Detected=true,ReplaceCountdown=true,MaximumMarkers=3,CandidateLimit=16,MaximumDistance=80,CardScale=1,CardWidth=360,InteractionBottom=90,ScreenMargin=20,MarkerCrosshairRadius=72};
+            Rescue=true,Pings=true,Detected=true,ReplaceCountdown=true,ShortPrompt=false,HideNativePrompt=false,MaximumMarkers=3,CandidateLimit=16,MaximumDistance=80,CardScale=1,CardWidth=360,InteractionBottom=90,ScreenMargin=20,MarkerCrosshairRadius=72};
         public HudSceneOptions Sanitized()=>this with{MaximumMarkers=Math.Clamp(MaximumMarkers,0,3),CandidateLimit=Math.Clamp(CandidateLimit,1,32),
             MaximumDistance=HudPanelLayoutOptions.Clamp(MaximumDistance,5,500,80),CardScale=HudPanelLayoutOptions.Clamp(CardScale,.65f,1.4f,1),
             CardWidth=HudPanelLayoutOptions.Clamp(CardWidth,280,480,360),InteractionOffsetX=HudPanelLayoutOptions.Clamp(InteractionOffsetX,-600,600,0),

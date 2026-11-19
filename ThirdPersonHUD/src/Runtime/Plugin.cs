@@ -15,7 +15,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
     [BepInDependency("PreLuna.ThirdPerson", BepInDependency.DependencyFlags.HardDependency)]
     public sealed class Plugin : BasePlugin
     {
-        public const string Id = "PreLuna.ThirdPersonHUD", Version = "0.13.1";
+        public const string Id = "PreLuna.ThirdPersonHUD", Version = "0.15.2";
         internal static Plugin Instance;
         internal HudSettings Settings;
         internal HudControlState Control;

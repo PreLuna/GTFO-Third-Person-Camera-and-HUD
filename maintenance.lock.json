@@ -13,14 +13,29 @@
       "Bytes": 184
     },
     {
+      "Path": "第三人称指向性设计方案.md",
+      "SHA256": "0DA631701902FFA710D9AB9A29B1037F32ACCF33CDD73744725D5AD058C1B73B",
+      "Bytes": 32129
+    },
+    {
+      "Path": "第三人称装备实现与验收.md",
+      "SHA256": "174C04F4E930C74686DA420FB83A6DCE142DF6F30CA89C39476D2D1F8436A131",
+      "Bytes": 8827
+    },
+    {
+      "Path": "阶段2-实验设计与不实施说明.md",
+      "SHA256": "ABF76191EC4720FC63B22EEF49752551FBDD09A53E379A70C79B647E932410EA",
+      "Bytes": 5867
+    },
+    {
       "Path": "Build.ps1",
       "SHA256": "14B9203BDAE137534027F7B31AE623CA577EF29EA0AE6E5B7F983D5E28F60FB6",
       "Bytes": 491
     },
     {
       "Path": "IntegrationTests/recipes.json",
-      "SHA256": "440D741984F5D688F55535D2841C62CAFE23BFD10B25DD76A02B16DD9AAD9E3A",
-      "Bytes": 54026
+      "SHA256": "4C8EBE3B0C8BCCEC1A6E8BED835E3DF414DB5B4D2D3FD5FA9A3E2E9B275297D9",
+      "Bytes": 57837
     },
     {
       "Path": "IntegrationTests/Scenarios/IntegrationScenarios.cs",
@@ -29,13 +44,13 @@
     },
     {
       "Path": "README.md",
-      "SHA256": "50FB905F5D5BCB0A68C6C96DF8EA7BCB0634D1BCE9A9B3422FC892C0C5850BAA",
-      "Bytes": 42928
+      "SHA256": "8B2FD2ED921285954328294C02CEFAA7A994646FCF3EDFDF8DEFF461CF0820BA",
+      "Bytes": 59960
     },
     {
       "Path": "repo.json",
-      "SHA256": "BDEA105297C6AB6C7374FAA7687AB1CD7CA292A97855E1D7C7C1D69B93D437AB",
-      "Bytes": 1871
+      "SHA256": "2AD551D732D93BE981185E734DA8B92D03DC51B2852AEE846B126B405EE42E0B",
+      "Bytes": 1941
     },
     {
       "Path": "Shared/ThirdPerson.Contracts/说明.md",
@@ -98,19 +113,29 @@
       "Bytes": 12363
     },
     {
+      "Path": "ThirdPerson/src/Body/MeleeSpikeView.cs",
+      "SHA256": "66D68CA33CB8F5BFE816B7DA830D8A0C3BFF0B5DF2B613E6D6C27F90DAD515B2",
+      "Bytes": 10485
+    },
+    {
       "Path": "ThirdPerson/src/Body/NativeBodyHolding.cs",
-      "SHA256": "ED2E70B4D66D60229DE31E5EF9D23B65259EDBF3EF2F861B21149F907AD2C15B",
-      "Bytes": 8970
+      "SHA256": "BBED3AB52A0058C641217C884FDD9846FBECEE4596B936C65B5C1291DD618DF8",
+      "Bytes": 26050
     },
     {
       "Path": "ThirdPerson/src/Body/NativeBodyIk.cs",
-      "SHA256": "18AA2619901057DCAE44CD459AD4BA2FCA6F5788A1366B5E043D5B10FD342300",
-      "Bytes": 6873
+      "SHA256": "3CAF2BA9DA3C67401949EE97E013A48294EED22E82C2D7AF5709F314F4F14F84",
+      "Bytes": 7000
+    },
+    {
+      "Path": "ThirdPerson/src/Body/NativeThirdPersonEquipmentView.cs",
+      "SHA256": "00504AEC4578AD98D55CBA1C5F4A5EA5F33AB47E75FED04F99F46CB4611634EE",
+      "Bytes": 11530
     },
     {
       "Path": "ThirdPerson/src/Body/WorldWeaponView.cs",
-      "SHA256": "8A3BA60472A74015EDF4FB296FEBC2C449A5A1028AE41CFC15C7DAD339CAF9A1",
-      "Bytes": 9001
+      "SHA256": "05F7173A7EAE0931B333784590FAC8BEB2245C058B150BF86674C538362819BC",
+      "Bytes": 9957
     },
     {
       "Path": "ThirdPerson/src/Bridge/OptionalHeadCameraProbe.cs",
@@ -253,6 +278,16 @@
       "Bytes": 2623
     },
     {
+      "Path": "ThirdPerson/src/Core/PointerProjection.cs",
+      "SHA256": "9688C629A3B1A78D28D3505FC100DD55A12EFA4116477A62CBA07F60CEA59770",
+      "Bytes": 2119
+    },
+    {
+      "Path": "ThirdPerson/src/Core/PresentationRecovery.cs",
+      "SHA256": "6B45E1507EF244FD1E6B4844B17AB9BEE3AA4567BE4C4C7C36ECB8FDE8258FFB",
+      "Bytes": 1054
+    },
+    {
       "Path": "ThirdPerson/src/Core/ResourceLedger.cs",
       "SHA256": "D39FD9B4D20C3021242A4E903FBD8950C3D7DB5B7B71696535472CCFF46ED408",
       "Bytes": 995
@@ -288,19 +323,29 @@
       "Bytes": 1770
     },
     {
+      "Path": "ThirdPerson/src/Runtime/FourSevenProbe.cs",
+      "SHA256": "A460A0AC00D1F3EAD823CE40694316A1FABD18B22C1D978091D0DADD97D62762",
+      "Bytes": 14028
+    },
+    {
+      "Path": "ThirdPerson/src/Runtime/GlueGunPoseProbe.cs",
+      "SHA256": "4292D9D4DF79831131415E0972B2652BC7F70BB32C9F202AC56B7D66AC020BDB",
+      "Bytes": 8668
+    },
+    {
       "Path": "ThirdPerson/src/Runtime/Plugin.cs",
-      "SHA256": "63EE78368E3CBD2D97743D00081487546DE5B2C68DBD18439F4BD5D5828041D1",
-      "Bytes": 12235
+      "SHA256": "FC443B48E8AF9FCCD5503D51DCD1EA2BC0F1C2EEF7C3BD74F7BDB6B67B1D360C",
+      "Bytes": 12912
     },
     {
       "Path": "ThirdPerson/src/Runtime/PluginSettings.cs",
-      "SHA256": "DC86822DE419AE89A12BF778019FDFEC7DBBF727D10472B288A0DB0C23D4921B",
-      "Bytes": 21185
+      "SHA256": "C3B7409A5EDDEB46951956E99D5AD803CE222E5EF8FAA1166E45A62FC9A409BC",
+      "Bytes": 25121
     },
     {
       "Path": "ThirdPerson/src/Runtime/RenderScope.cs",
-      "SHA256": "5F2737BBC1D19380A8F6FC410632409085169E7F494BF1766AC9A0998BEEF0ED",
-      "Bytes": 9588
+      "SHA256": "99D57C96FA0C38AD906A294DFF207CA3CE67A47CA0202A339B1EFB4DE0A0A953",
+      "Bytes": 9427
     },
     {
       "Path": "ThirdPerson/src/Runtime/ThirdPersonBodySizeDiagnostics.cs",
@@ -314,13 +359,13 @@
     },
     {
       "Path": "ThirdPerson/src/Runtime/ThirdPersonHudBridge.cs",
-      "SHA256": "956C2503AFD48C54B0429678DA2329C81EC20D17972AA732AF05352504E3B2D1",
-      "Bytes": 8874
+      "SHA256": "FA09E424105557CCCAC0A504AFC24E56FADBD099AD1C7B27940DF6602F1A8936",
+      "Bytes": 9032
     },
     {
       "Path": "ThirdPerson/src/Runtime/ThirdPersonObservation.cs",
-      "SHA256": "CD4F2C6DDA2143565CBC7DEAFC169E399433DBB748798157F87E27029F22B911",
-      "Bytes": 7151
+      "SHA256": "C29F45AECAF13E052E16BB7B22DA2F81F3D9BDFED9F4D41C55301C81DEBC1EE7",
+      "Bytes": 7221
     },
     {
       "Path": "ThirdPerson/src/Runtime/ThirdPersonObservationFeedback.cs",
@@ -328,14 +373,24 @@
       "Bytes": 6194
     },
     {
+      "Path": "ThirdPerson/src/Runtime/ThirdPersonPointerDebug.cs",
+      "SHA256": "7C39863E765273BBFC9AA13D0E286AEB71A2B2197BED307BCBEC9FE894733D5C",
+      "Bytes": 19200
+    },
+    {
+      "Path": "ThirdPerson/src/Runtime/ThirdPersonPointerOverlay.cs",
+      "SHA256": "91B48DE381BFCFE634B849E9C1A018E64244D42B70C2EBAE82530BC602CBEA74",
+      "Bytes": 5973
+    },
+    {
       "Path": "ThirdPerson/src/Runtime/ThirdPersonRuntime.cs",
-      "SHA256": "2D1F81F669E96B159880AF5EA378C761BC9C90C26FEF398FE3694D1FBB2C1B73",
-      "Bytes": 43460
+      "SHA256": "9CD5A151D0965C04C13362E6503E7B25D9D5F2B599C89BF4D49E0FC4545ECFE0",
+      "Bytes": 67886
     },
     {
       "Path": "ThirdPerson/src/Runtime/UnityCameraWorld.cs",
-      "SHA256": "2738CBF779C46FE8C372D9E19034B9771F33CD5915ACFC4B5FC4F70CDE37A62B",
-      "Bytes": 2942
+      "SHA256": "5C2132202586F560A5B24CA542DAD2A3A708A9F04DEB9A2E5428BB076288EE9D",
+      "Bytes": 3824
     },
     {
       "Path": "ThirdPerson/tests/BodyPoseTests.cs",
@@ -344,13 +399,13 @@
     },
     {
       "Path": "ThirdPerson/tests/BodyRenderMocks.cs",
-      "SHA256": "8EA9EA8EDF4CB4E37FD75A33B2B7FE034E1A567C24C35DE65398A3F2688F859E",
-      "Bytes": 17420
+      "SHA256": "9184F1C3D99D7AF32BE946773F3A2FA38EBAA95AEE785F60A718FB49420AED77",
+      "Bytes": 19837
     },
     {
       "Path": "ThirdPerson/tests/BodyRenderTests.cs",
-      "SHA256": "237E36BBB35D484A7869A36C139B77EC20346AACE88B295291ADFF9292AEBFA1",
-      "Bytes": 34606
+      "SHA256": "B306622ABEE0D67C39C3476717D4C1915BD806531216952778AED565655178A5",
+      "Bytes": 38762
     },
     {
       "Path": "ThirdPerson/tests/Camera054Baseline.json",
@@ -399,8 +454,18 @@
     },
     {
       "Path": "ThirdPerson/tests/NativeHoldingTests.cs",
-      "SHA256": "9CFEE6899171953038606EB1C616030DCCCAF4804E914F58D7B9EA809B1B6542",
-      "Bytes": 16884
+      "SHA256": "98F84D7E454D7FB3649A8D4759E53E3A99615E52727706DCE42F3A6FA92DDA02",
+      "Bytes": 41980
+    },
+    {
+      "Path": "ThirdPerson/tests/PointerProjectionTests.cs",
+      "SHA256": "B8052819DABA16D3C7463514B6ECD6FC68FC523A5A363E964330E7CE50789088",
+      "Bytes": 4672
+    },
+    {
+      "Path": "ThirdPerson/tests/PresentationRecoveryTests.cs",
+      "SHA256": "191DA3096BC84AE4AC2891A553DA38C95A5767F9F1F2EDEEE89D437F6F79F6C8",
+      "Bytes": 1987
     },
     {
       "Path": "ThirdPerson/tests/SpatialCameraTests.cs",
@@ -444,8 +509,8 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Content/HudSceneContracts.cs",
-      "SHA256": "6784386521B6458CB412DB5AC098C33ADC681C4BC1028DC3DCC81701BAA691DD",
-      "Bytes": 3970
+      "SHA256": "3BF17A1C9B82AE2A733697845817E82E8831B1DA28FD3E97D00D7AD6A64ED3AF",
+      "Bytes": 4057
     },
     {
       "Path": "ThirdPersonHUD/src/Content/HudTeamContracts.cs",
@@ -464,8 +529,8 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Control/HudControlState.cs",
-      "SHA256": "370F67BED0EEE468481047E11362779C84B3F620282B2BA6E3E24830AB71B2A4",
-      "Bytes": 9036
+      "SHA256": "965DE7B1F450E0DC348BDE053219958544A5EDCB15B171A1F3BA3F34E70D8488",
+      "Bytes": 9345
     },
     {
       "Path": "ThirdPersonHUD/src/Control/ThirdPersonHudControlApi.cs",
@@ -564,8 +629,8 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Panel/HudPanelDrawing.cs",
-      "SHA256": "8DF0A0E0F616349417A9C6BB71AE408C6BF5674DC4461DF26393E4BCDB01E7BB",
-      "Bytes": 9163
+      "SHA256": "4211460A2CA7765FC7073DD7A045A24E56EE3C74DD5C74E020B21A6155F87ACF",
+      "Bytes": 9169
     },
     {
       "Path": "ThirdPersonHUD/src/Panel/HudPanelOptions.cs",
@@ -609,13 +674,18 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Panel/HudScene.cs",
-      "SHA256": "25D5CA0402E3DA1C6BFF831B6161831366003F42BD614EC529E4A2A7C6B3824B",
-      "Bytes": 15541
+      "SHA256": "0F6B3BBA5D2709ED954BC6AA3B423DC5ACC0793CC3B390560EB001B42D28AD6C",
+      "Bytes": 16955
     },
     {
       "Path": "ThirdPersonHUD/src/Panel/HudSceneOptions.cs",
-      "SHA256": "31A366A3AD29C874C23D3DA29FD79EB4C4D382901741AC086C32C11E04824185",
-      "Bytes": 2227
+      "SHA256": "AD60FB1CBA58EC85161D0B7B9C753A4849FB16B073FF5CF6F181A133A24D652A",
+      "Bytes": 2367
+    },
+    {
+      "Path": "ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs",
+      "SHA256": "FD412C404B8A8598A1274BA010C2D9BCF6AD548F3A469A55E121E5AF342F4291",
+      "Bytes": 3129
     },
     {
       "Path": "ThirdPersonHUD/src/Panel/HudTeam.cs",
@@ -629,8 +699,8 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HolographicHud.cs",
-      "SHA256": "29A779C426904FFB9A4C585B017E6AD1CB254516FDB4D0B0D1BBBB7377295937",
-      "Bytes": 9244
+      "SHA256": "AAF471D9797AA774BD03B46D0F27FED852DDC81FFA6DFDDDD36507E3E6490764",
+      "Bytes": 11993
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudAlertSettings.cs",
@@ -659,13 +729,18 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudGameSceneSource.cs",
-      "SHA256": "3B787B04B2131C014D69A6C950C5587AC761E06E754921C34594ECB79813A572",
-      "Bytes": 14941
+      "SHA256": "B1325E3963FD473D79AAD011F067F15B0ABE807A67E05BC580ADBA53115E5A1A",
+      "Bytes": 15750
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudGameTeamSource.cs",
       "SHA256": "F5BD8F5F032313BEFA70B8540B727AA6776274ABF9289B6A894B253CDC3C172F",
       "Bytes": 10162
+    },
+    {
+      "Path": "ThirdPersonHUD/src/Runtime/HudNativePromptVisibility.cs",
+      "SHA256": "C00B212BFD71214C302B97270EC8280B8CECF43AD00EB34C454675DD7B76E8FB",
+      "Bytes": 1121
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudOriginalGamePort.cs",
@@ -689,18 +764,18 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudRuntime.cs",
-      "SHA256": "A66D30D2E6DCE60E18395E7AEC86B88F5327FFD0BFEE123F77EDE2B784FEEE95",
-      "Bytes": 21513
+      "SHA256": "99D37CB17B6FC37D183F346B4562ABEF94267BE9CA9549F44F16859413037114",
+      "Bytes": 24023
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudSceneSettings.cs",
-      "SHA256": "B7040EC16CFD69384568CB001AEF5E878F188C13074C02BDBB88FCDF3F73FC70",
-      "Bytes": 4238
+      "SHA256": "FCABA92CFE19E1E8EA96A96075AF5380D513AC20803F297221C39730B4A19A48",
+      "Bytes": 5146
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudSettings.cs",
-      "SHA256": "E68D3E8E107DF4B8338BB3D4683F7EB5B90A7DE7384FF79F5FC6B32004C25CB1",
-      "Bytes": 9562
+      "SHA256": "2F6E4E58B969C2E32AE480BABA7F7CB17915FBC77A3290FB59CD46368BC86B9D",
+      "Bytes": 10339
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/HudTeamSettings.cs",
@@ -714,7 +789,7 @@
     },
     {
       "Path": "ThirdPersonHUD/src/Runtime/Plugin.cs",
-      "SHA256": "FE61C8E8D4BD2FAE6BACC0140C6EC2AFE92699B524530CDB29006F6B296F2AA8",
+      "SHA256": "61C9872F0B55CD6FE15110D51E751706E597F85CF9E9547AD8E8F41C3E00E81F",
       "Bytes": 5409
     },
     {
@@ -734,8 +809,8 @@
     },
     {
       "Path": "ThirdPersonHUD/tests/CollectionGameMocks.cs",
-      "SHA256": "C52D098E5E55CE989BD2B0D0F1A4D2488E60A6B78E0C4CECDF96CE8B0A518FC7",
-      "Bytes": 11709
+      "SHA256": "0D98D982945660B356D88790D37427B6E5B536EFC106256B541F4BB80A8531C4",
+      "Bytes": 12140
     },
     {
       "Path": "ThirdPersonHUD/tests/CollectionPipelineTests.cs",
@@ -764,8 +839,8 @@
     },
     {
       "Path": "ThirdPersonHUD/tests/HudControlStateTests.cs",
-      "SHA256": "D7A13F71F6D30EB856290BC04DC61356E285CC021CBCDC23ED6EBC27353BB0B8",
-      "Bytes": 6332
+      "SHA256": "0FDF6EE58F910BFA152B8D9D0AEABD4E59FF386C2898352A809489B9D1F5A29C",
+      "Bytes": 7425
     },
     {
       "Path": "ThirdPersonHUD/tests/LifecycleTests.cs",
@@ -774,8 +849,8 @@
     },
     {
       "Path": "ThirdPersonHUD/tests/LifecycleUnityMocks.cs",
-      "SHA256": "6F1CB3075A82414A8BCE04AD08C886759B5F0D295949A5EA988423F9366FAF47",
-      "Bytes": 11443
+      "SHA256": "C0159F6B588DA8E132B0C24D782D32F7F0C5C4C650466B54385BC7D2EB80E20B",
+      "Bytes": 12347
     },
     {
       "Path": "ThirdPersonHUD/tests/OriginalTestData.cs",
@@ -834,13 +909,13 @@
     },
     {
       "Path": "ThirdPersonHUD/tests/SceneTestData.cs",
-      "SHA256": "F6D9CB7350C4E5D369479BB1096CB759A57CD68E82AA343161DF2ACECB302446",
-      "Bytes": 2680
+      "SHA256": "6DBF0FB0BF7B98A53A2993217DFBB5AC52DE0273C6679CFB5DA3FD4978233E2B",
+      "Bytes": 2802
     },
     {
       "Path": "ThirdPersonHUD/tests/SceneTests.cs",
-      "SHA256": "32D62503D81980FDF510EAD37D1F7556E5744E2B25A93A5285C92BD1AF128DD1",
-      "Bytes": 12822
+      "SHA256": "4BFA69A9327204271BC4BFD3C4B2253ADF643D2E41F1EA78149B90FC7F4FC7B0",
+      "Bytes": 14907
     },
     {
       "Path": "ThirdPersonHUD/tests/TeamCollectionTests.cs",

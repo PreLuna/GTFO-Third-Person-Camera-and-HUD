@@ -5,7 +5,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
 {
     internal sealed class HudSceneSettings
     {
-        readonly ConfigEntry<bool> enabled,interaction,supply,mission,scan,markers,rescue,pings,detected,replace;
+        readonly ConfigEntry<bool> enabled,interaction,supply,mission,scan,markers,rescue,pings,detected,replace,shortPrompt,hideNativePrompt;
         readonly ConfigEntry<int> maximum,candidates;
         readonly ConfigEntry<float> distance,scale,width,offset,bottom,margin,crosshair;
         internal HudSceneSettings(ConfigFile c)
@@ -20,6 +20,8 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             rescue=c.Bind("Scene","Rescue",d.Rescue,"倒地队员方向提示。");pings=c.Bind("Scene","Pings",d.Pings,"实际可见的队友标记。");
             detected=c.Bind("Scene","Detected",d.Detected,"仅当前本机扫描器已发现列表，不搜索隐藏敌人。");
             replace=c.Bind("Scene","ReplaceCountdown",d.ReplaceCountdown,"成功完整绘制后替代对应原版倒计时文字；其他合并信息继续保留。");
+            shortPrompt=c.Bind("Scene","ShortPrompt",d.ShortPrompt,"1b：把交互/补给卡片替换为贴着当前选中目标的短提示；原版交互提示仍保留，默认关闭。");
+            hideNativePrompt=c.Bind("Scene","HideNativePrompt",d.HideNativePrompt,"1b实验：短提示激活时尝试隐藏原版InteractionGuiLayer静态提示；默认关闭，UI异常时关掉。");
             maximum=c.Bind("Scene","MaximumMarkers",d.MaximumMarkers,new ConfigDescription("最多显示的场景标签数，0 关闭。",new AcceptableValueRange<int>(0,3)));
             candidates=c.Bind("Scene","CandidateLimit",d.CandidateLimit,new ConfigDescription("每次最多检查多少个扫描器已发现条目。",new AcceptableValueRange<int>(1,32)));
             distance=c.Bind("Scene","MaximumDistance",d.MaximumDistance,new ConfigDescription("场景标签最大距离，米。",new AcceptableValueRange<float>(5,500)));
@@ -31,10 +33,18 @@ namespace PreLuna.ThirdPersonHUD.Runtime
             crosshair=c.Bind("Scene","MarkerCrosshairRadius",d.MarkerCrosshairRadius,new ConfigDescription("场景标签避让准星的逻辑半径，0 关闭避让。",new AcceptableValueRange<float>(0,200)));
         }
         internal HudSceneOptions Read()=>new HudSceneOptions{Enabled=enabled.Value,Interaction=interaction.Value,Supply=supply.Value,Mission=mission.Value,
-            Scan=scan.Value,Markers=markers.Value,Rescue=rescue.Value,Pings=pings.Value,Detected=detected.Value,ReplaceCountdown=replace.Value,
+            Scan=scan.Value,Markers=markers.Value,Rescue=rescue.Value,Pings=pings.Value,Detected=detected.Value,ReplaceCountdown=replace.Value,ShortPrompt=shortPrompt.Value,HideNativePrompt=hideNativePrompt.Value,
             MaximumMarkers=maximum.Value,CandidateLimit=candidates.Value,MaximumDistance=distance.Value,CardScale=scale.Value,CardWidth=width.Value,
             InteractionOffsetX=offset.Value,InteractionBottom=bottom.Value,ScreenMargin=margin.Value,MarkerCrosshairRadius=crosshair.Value}.Sanitized();
         internal bool ControlEnabled { get => enabled.Value; set => enabled.Value = value; }
-        internal string ControlSerialized(string key) => key == "scene" ? enabled.GetSerializedValue() : null;
+        internal bool ControlShortPrompt { get => shortPrompt.Value; set => shortPrompt.Value = value; }
+        internal bool ControlHideNativePrompt { get => hideNativePrompt.Value; set => hideNativePrompt.Value = value; }
+        internal string ControlSerialized(string key) => key switch
+        {
+            "scene" => enabled.GetSerializedValue(),
+            "shortPrompt" => shortPrompt.GetSerializedValue(),
+            "hideNativePrompt" => hideNativePrompt.GetSerializedValue(),
+            _ => null
+        };
     }
 }

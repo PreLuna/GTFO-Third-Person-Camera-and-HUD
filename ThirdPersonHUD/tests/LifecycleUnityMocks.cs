@@ -100,6 +100,7 @@ namespace UnityEngine
         public Object() { Created.Add(this); }
         public static void Fail(string point) { if (FailAt == point) { FailAt = null; throw new InvalidOperationException("mock " + point); } }
         public static void Destroy(Object value) { if (!ReferenceEquals(value, null)) value.Destroyed = true; }
+        public static T FindObjectOfType<T>() where T : class => null;
         public static bool operator ==(Object a, Object b) => (ReferenceEquals(a, null) || a.Destroyed) == (ReferenceEquals(b, null) || b.Destroyed) && (ReferenceEquals(a, b) || ReferenceEquals(a, null) || ReferenceEquals(b, null));
         public static bool operator !=(Object a, Object b) => !(a == b);
         public override bool Equals(object other) => ReferenceEquals(this, other);
@@ -122,9 +123,16 @@ namespace UnityEngine
     public sealed class GameObject : Object
     {
         public bool active = true; public Transform transform = new();
+        readonly System.Collections.Generic.Dictionary<System.Type,object> components = new();
         public GameObject(string name) { this.name=name; }
+        public bool activeSelf => active;
         public void SetActive(bool value) { active=value; Fail("SetActive"); }
+        public T GetComponent<T>() where T : class => components.TryGetValue(typeof(T),out var component) ? component as T : null;
+        public T AddComponent<T>() where T : class,new() { var component=new T();components[typeof(T)]=component;return component; }
     }
+    public sealed class CanvasGroup : Object { public float alpha=1; public bool interactable=true,blocksRaycasts=true; }
+    public sealed class PUI_InteractionPrompt { public GameObject gameObject = new("interaction-prompt"); }
+    public sealed class InteractionGuiLayer { public PUI_InteractionPrompt m_interactPrompt = new(); }
     public sealed class Texture2D : Object
     {
         public int width,height,Pixels,Uploads; public FilterMode filterMode;
@@ -177,3 +185,4 @@ namespace UnityEngine
         public static void Label(Rect rect,GUIContent label,GUIStyle style){Object.Fail("Label");Labels.Add(label.text);}
     }
 }
+public static class GuiManager { public static UnityEngine.InteractionGuiLayer InteractionLayer; }

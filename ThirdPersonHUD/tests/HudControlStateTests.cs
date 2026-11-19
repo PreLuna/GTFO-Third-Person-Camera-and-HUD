@@ -35,6 +35,8 @@ static class HudControlStateTests
             values["personal"] = HudControlValue.Boolean(true);
             values["team"] = HudControlValue.Boolean(true);
             values["scene"] = HudControlValue.Boolean(true);
+            values["shortPrompt"] = HudControlValue.Boolean(false);
+            values["hideNativePrompt"] = HudControlValue.Boolean(false);
             values["alerts"] = HudControlValue.Boolean(true);
             values["panelScale"] = HudControlValue.Number(1);
             values["panelWidth"] = HudControlValue.Number(360);
@@ -69,6 +71,22 @@ static class HudControlStateTests
 
     static int Main(string[] args)
     {
+        Case("1b-prompt-switches-save-and-read-back", () =>
+        {
+            var h = new Harness("[Scene]\nShortPrompt = false\nHideNativePrompt = false\n");
+            var change = new HudControlChange(h.State.Revision, new Dictionary<string, HudControlValue>
+            {
+                ["shortPrompt"] = HudControlValue.Boolean(true),
+                ["hideNativePrompt"] = HudControlValue.Boolean(true)
+            });
+            var result = h.State.SetPersistent(change);
+            Check(result.Outcome == HudControlOutcome.Success, "outcome");
+            Check(h.Get("shortPrompt").TryGetBoolean(out var shortPrompt) && shortPrompt, "shortPrompt");
+            Check(h.Get("hideNativePrompt").TryGetBoolean(out var hideNative) && hideNative, "hideNativePrompt");
+            var file = File.ReadAllText(h.Path);
+            Check(file.Contains("ShortPrompt = true") && file.Contains("HideNativePrompt = true"), "file");
+        });
+
         Case("validation-rejects-out-of-range", () =>
         {
             var h = new Harness();

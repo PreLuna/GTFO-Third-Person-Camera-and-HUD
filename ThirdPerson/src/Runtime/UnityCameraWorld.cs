@@ -36,6 +36,22 @@ namespace PreLuna.ThirdPerson.Runtime
             if(Overlap(origin,.015f)){point=origin;return true;}
             return found;
         }
+        internal bool RayHit(V origin,V direction,float distance,out RaycastHit hit)
+        {
+            RayQueries++;
+            int count=Physics.RaycastNonAlloc(ConvertView.U(origin),ConvertView.U(direction),hits,distance,Mask,QueryTriggerInteraction.Ignore);
+            hit=default;float nearest=distance;bool found=false;
+            if(count>=hits.Length){BufferSaturated=true;return false;}
+            for(int i=0;i<count;i++)
+            {
+                var candidate=hits[i];
+                if(Blocks(candidate.collider)&&candidate.distance<nearest){nearest=candidate.distance;hit=candidate;found=true;}
+            }
+            // A ray starting inside geometry has no valid surface hit; callers can
+            // still treat it as blocked by the overlap query.
+            if(Overlap(origin,.015f)){hit=default;return true;}
+            return found;
+        }
         public bool Overlap(V center,float radius)
         {
             OverlapQueries++;

@@ -6,9 +6,9 @@ internal static class SceneTestData
     internal static HudValueStamp Stamp(HudContentCaptureRequest r,long id,long revision=1)=>HudValueStamp.AtCapture(r,new(id,(int)id)) with{SubjectRevision=revision};
     internal static HudValue<HudSceneSubject> Subject(HudValueStamp s,ObjectIdentity related=default)=>PersonalTestData.Value(new HudSceneSubject(s.Source,related,s.SubjectRevision),s);
     internal static HudInteractionSnapshot Interaction(HudContentCaptureRequest r)
-    {var s=Stamp(r,810);return new(Subject(s),PersonalTestData.Value(new HudText("安全门"),s),PersonalTestData.Value(new HudText("开启"),s),PersonalTestData.Value(new HudText("F"),s),PersonalTestData.Value(new HudQuantity(.42,HudUnit.Fraction),s));}
+    {var s=Stamp(r,810);return new(Subject(s),PersonalTestData.Value(new HudText("安全门"),s),PersonalTestData.Value(new HudText("开启"),s),PersonalTestData.Value(new HudText("F"),s),PersonalTestData.Value(new HudQuantity(.42,HudUnit.Fraction),s),PersonalTestData.Value(new HudWorldPoint(1.2f,1.1f,-3.4f),s));}
     internal static HudSupplySnapshot Supply(HudContentCaptureRequest r,bool self=false)
-    {var s=Stamp(r,820);var player=self?r.Origin.View.Binding.LocalPlayer:new PlayerIdentity(new(3001,3001),1001,1);return new(Subject(s,player.Agent),PersonalTestData.Value(new HudText("医疗包"),s),PersonalTestData.Value(new HudRecipient(player,"队员甲",self),s),PersonalTestData.Value(new HudQuantity(2,HudUnit.Uses),s),PersonalTestData.Value(new HudQuantity(.6,HudUnit.Fraction),s));}
+    {var s=Stamp(r,820);var player=self?r.Origin.View.Binding.LocalPlayer:new PlayerIdentity(new(3001,3001),1001,1);return new(Subject(s,player.Agent),PersonalTestData.Value(new HudText("医疗包"),s),PersonalTestData.Value(new HudRecipient(player,"队员甲",self),s),PersonalTestData.Value(new HudQuantity(2,HudUnit.Uses),s),PersonalTestData.Value(new HudQuantity(.6,HudUnit.Fraction),s),PersonalTestData.Value(new HudWorldPoint(2.2f,1.1f,-3.4f),s));}
     internal static HudObjectiveSnapshot Objective(HudContentCaptureRequest r,long id,string title,string text)
     {var s=Stamp(r,id);return new(Subject(s),PersonalTestData.Value(new HudText(title),s),PersonalTestData.Value(new HudText(text),s));}
     internal static HudValue<HudSceneMarker> Marker(HudContentCaptureRequest r,long id,HudSceneMarkerKind kind,float x,float y,float z,int dimension=0)

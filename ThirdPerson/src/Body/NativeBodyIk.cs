@@ -25,10 +25,10 @@ namespace PreLuna.ThirdPerson.Body
         }
         void Remember(Transform bone)
         {if(bone!=null&&!bones.Exists(b=>b.Pointer==bone.Pointer))bones.Add(bone);}
-        void Bind(LocalPlayerAgent player,WorldWeaponView view)
+        void Bind(LocalPlayerAgent player,WorldWeaponView view,bool useAim)
         {
             var root=player.AnimatorBody.transform;
-            if(aim==null)
+            if(useAim&&aim==null)
             {
                 var source=player.SyncIK?.m_aimSolver;
                 var chain=new List<Transform>();
@@ -85,17 +85,18 @@ namespace PreLuna.ThirdPerson.Body
             }
         }
         static bool Finite(Vector3 v)=>float.IsFinite(v.x)&&float.IsFinite(v.y)&&float.IsFinite(v.z);
-        internal void Solve(LocalPlayerAgent player,WorldWeaponView view,Vector3 target)
+        internal void Solve(LocalPlayerAgent player,WorldWeaponView view,Vector3 target,bool useAim=true)
         {
-            if(lastFrame==Time.frameCount||!Finite(target))return;
-            if((aim==null||left==null)&&Time.frameCount>=nextAttempt)
-            {Bind(player,view);nextAttempt=Time.frameCount+30;}
+            if(lastFrame==Time.frameCount||(useAim&&!Finite(target)))return;
+            if(!useAim)aimStatus="not-used-for-melee";
+            if(((useAim&&aim==null)||left==null)&&Time.frameCount>=nextAttempt)
+            {Bind(player,view,useAim);nextAttempt=Time.frameCount+30;}
             original.Clear();foreach(var bone in bones)if(bone!=null)original.Add((bone,bone.localPosition,bone.localRotation));
             lastFrame=Time.frameCount;
             try
             {
                 view.UpdatePose(player);
-                if(aim!=null){aim.IKPosition=target;aim.Update();}
+                if(useAim&&aim!=null){aim.IKPosition=target;aim.Update();}
                 view.UpdatePose(player);
                 if(left!=null&&view.LeftGrip(out var position,out var rotation))
                 {

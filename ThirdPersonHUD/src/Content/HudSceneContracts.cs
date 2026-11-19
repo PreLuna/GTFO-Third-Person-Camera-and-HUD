@@ -8,13 +8,13 @@ namespace PreLuna.ThirdPersonHUD.Content
     public readonly record struct HudRecipient(PlayerIdentity Player, string Name, bool Self) : IHudContentValue
     { public bool IsValid => Player.IsValid && !string.IsNullOrWhiteSpace(Name); }
     public readonly record struct HudInteractionSnapshot(HudValue<HudSceneSubject> Subject, HudValue<HudText> Name,
-        HudValue<HudText> Action, HudValue<HudText> Key, HudValue<HudQuantity> Progress);
+        HudValue<HudText> Action, HudValue<HudText> Key, HudValue<HudQuantity> Progress, HudValue<HudWorldPoint> Position);
     public readonly record struct HudSupplySnapshot(HudValue<HudSceneSubject> Subject, HudValue<HudText> Item,
-        HudValue<HudRecipient> Recipient, HudValue<HudQuantity> Uses, HudValue<HudQuantity> Progress);
+        HudValue<HudRecipient> Recipient, HudValue<HudQuantity> Uses, HudValue<HudQuantity> Progress, HudValue<HudWorldPoint> Position);
     public readonly record struct HudObjectiveSnapshot(HudValue<HudSceneSubject> Subject, HudValue<HudText> Title, HudValue<HudText> Text);
     public readonly record struct HudScanSnapshot(HudValue<HudSceneSubject> Subject, HudValue<HudText> Text, HudValue<HudQuantity> Progress);
     public enum HudSceneMarkerKind { Unknown, Rescue, Ping, Detected }
-    public readonly record struct HudWorldPoint(float X, float Y, float Z)
+    public readonly record struct HudWorldPoint(float X, float Y, float Z) : IHudContentValue
     {
         public bool IsValid => float.IsFinite(X) && float.IsFinite(Y) && float.IsFinite(Z);
         public System.Numerics.Vector3 ToVector() => new(X,Y,Z);

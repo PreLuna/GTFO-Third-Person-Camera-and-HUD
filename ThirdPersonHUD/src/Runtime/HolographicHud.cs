@@ -32,6 +32,7 @@ namespace PreLuna.ThirdPersonHUD.Runtime
         public bool HasResources=>step!=0||!ReferenceEquals(pixel,null)||!ReferenceEquals(font,null);
         public bool IsHealthy=>(step<1||pixel!=null)&&(step<2||font!=null&&style!=null&&label!=null);
         public bool IsReady=>step==3&&IsHealthy;
+        internal bool PromptActive=>queued&&IsReady&&view.Scene.Active&&view.Scene.Prompt.Active;
         public HudPresentationDiagnostics Diagnostics=>new(instance,draws,textureRejections,0,texturesCreated,destroyRequests,
             (pixel!=null?1:0)+(font!=null?1:0),lastDraw);
         internal string FontUsed { get; private set; }
@@ -142,6 +143,42 @@ namespace PreLuna.ThirdPersonHUD.Runtime
                 lastDraw=placement;draws++;
             }
             finally{try{GUI.color=previous;}finally{if(division)GUI.matrix=previousMatrix;}}
+        }
+        public void DrawPrompt(in ThirdPersonDisplayFrame display)
+        {
+            if(!queued||!IsReady||Event.current==null||Event.current.type!=EventType.Repaint)return;
+            if(Camera.current!=null&&Camera.current.targetTexture!=null)return;
+            var scene=view.Scene;var prompt=scene.Prompt;
+            if(!scene.Active||!prompt.Active||pixel==null||font==null||style==null||label==null)return;
+            float scale=Math.Clamp(display.Camera.Viewport.Height/1080f,.75f,2f)*Math.Max(.65f,scene.Options.CardScale);
+            if(!HudPromptProjection.TryPlace(display,prompt,scale,placement.Panel.Bounds,out var bounds))return;
+            var t=options.Theme;var accent=t.Base.Brightness(t.Brightness).Opacity(t.TextOpacity);
+            var ink=t.Text.Brightness(t.Brightness).Opacity(t.TextOpacity);var background=t.Background.Opacity(t.BackgroundOpacity*.94f);
+            float x=bounds.X,y=Screen.height-bounds.Y-bounds.Height;
+            var old=GUI.color;
+            try
+            {
+                GUI.color=new Color(background.R,background.G,background.B,background.A);
+                GUI.DrawTexture(new Rect(x,y,bounds.Width,bounds.Height),pixel);
+                GUI.color=new Color(accent.R,accent.G,accent.B,accent.A*.85f);
+                GUI.DrawTexture(new Rect(x,y,Math.Max(1f,2f*scale),bounds.Height),pixel);
+                if(prompt.Progress is float progress)
+                {
+                    float bar=Math.Clamp(progress,0f,1f),barY=y+bounds.Height-Math.Max(2f,3f*scale);
+                    GUI.color=new Color(accent.R,accent.G,accent.B,accent.A*.2f);
+                    GUI.DrawTexture(new Rect(x+8f,barY,bounds.Width-16f,Math.Max(1f,2f*scale)),pixel);
+                    GUI.color=new Color(accent.R,accent.G,accent.B,accent.A);
+                    GUI.DrawTexture(new Rect(x+8f,barY,(bounds.Width-16f)*bar,Math.Max(1f,2f*scale)),pixel);
+                }
+                style.fontSize=Math.Max(1,(int)MathF.Round(options.Typography.BodySize*scale));
+                style.alignment=TextAnchor.MiddleCenter;
+                label.text=HudPanelDrawing.Ellipsize(prompt.Text,Math.Max(40f,bounds.Width/scale-16f),options.Typography.BodySize);
+                GUI.color=new Color(ink.R,ink.G,ink.B,ink.A);
+                if(options.Typography.Shadow){GUI.color=new Color(0,0,0,ink.A*.85f);GUI.Label(new Rect(x+9f,y+3f,bounds.Width-18f,bounds.Height-8f),label,style);}
+                GUI.color=new Color(ink.R,ink.G,ink.B,ink.A);
+                GUI.Label(new Rect(x+8f,y+2f,bounds.Width-16f,bounds.Height-8f),label,style);
+            }
+            finally {GUI.color=old;}
         }
         static Matrix4x4 PlaneMatrix(Matrix4x4 previous,HudPlaneTransform p,float x,float y)
             =>Compose(previous,p.A,p.B,p.C,p.D,x+p.X-p.A*x-p.B*y,y+p.Y-p.C*x-p.D*y);

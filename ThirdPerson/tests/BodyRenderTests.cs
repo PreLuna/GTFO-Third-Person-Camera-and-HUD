@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
+using CullingSystem;
 using PreLuna.ThirdPerson.Body;
 using PreLuna.ThirdPerson.Core;
 using PreLuna.ThirdPerson.Runtime;
@@ -240,9 +241,28 @@ static class BodyRenderTests
             var f=new Fixture();var c=f.Player.FPSCamera.m_camera;f.Player.PlayerSyncModel=c.gameObject.AddComponent<PlayerSyncModelData>();var p=c.transform.position;
             bool failed=false;try{using var scope=f.Scope();}catch(InvalidOperationException){failed=true;}Check(failed);Same(c.transform.position,p);
         });
-        Case("native-visibility-failure-still-restores-model-and-camera",()=>{
-            var f=new Fixture(linked:true);var p=f.Model.transform.position;var c=f.Player.FPSCamera.m_camera;var cp=c.transform.position;var scope=f.Scope();f.Player.FPSCamera.m_cullingCamera.Throw=true;
-            bool failed=false;try{scope.Dispose();}catch{failed=true;}Check(failed&&scope.WasRestored);Same(p,f.Model.transform.position);Same(cp,c.transform.position);
+        Case("render-scope-restores-camera-without-replaying-native-culling",()=>{
+            var f=new Fixture(linked:true);
+            var camera=f.Player.FPSCamera.m_camera;
+            var culler=f.Player.FPSCamera.m_cullingCamera;
+            var bodyPosition=f.Model.transform.position;
+            var cameraPosition=camera.transform.position;
+            var originalFov=camera.fieldOfView;var originalNear=camera.nearClipPlane;var originalMask=camera.cullingMask;
+            var forward=new Vector3(0,0,1);var right=new Vector3(1,0,0);
+            CameraManager.CullingPosition=new(1,2,3);CameraManager.CullingDirection=forward;CameraManager.CullingFov=61;
+            C_Camera.Position=new(4,5,6);C_Camera.Forward=forward;C_Camera.Right=right;C_Camera.Up=Vector3.up;
+            var updates=C_CullingManager.CameraUpdates;var sorts=C_CullingManager.LightSorts;
+            using var scope=f.Scope();
+            scope.Suspend();scope.Resume();
+            C_Camera.Position=camera.transform.position;
+            C_Camera.Forward=right;C_Camera.Right=Vector3.up;C_Camera.Up=forward;
+            scope.Dispose();scope.Dispose();
+            Check(scope.WasRestored&&camera.fieldOfView==originalFov&&camera.nearClipPlane==originalNear&&camera.cullingMask==originalMask);
+            Same(bodyPosition,f.Model.transform.position);Same(cameraPosition,camera.transform.position);
+            Same(new(1,2,3),CameraManager.CullingPosition);Same(forward,CameraManager.CullingDirection);Check(CameraManager.CullingFov==61);
+            Same(new(4,5,6),C_Camera.Position);Same(forward,C_Camera.Forward);Same(right,C_Camera.Right);Same(Vector3.up,C_Camera.Up);
+            Check(culler.VisibilityRuns==0&&C_CullingManager.CameraUpdates==updates&&C_CullingManager.LightSorts==sorts,
+                "restoring the render scope must not invoke a second native culling pass");
         });
         Case("weapon-grip-matches-hand-with-rotated-scaled-source",()=>{
             var f=new Fixture(linked:true);f.Model.ItemAlign.localRotation=Quaternion.Euler(24,67,-14);var item=f.Item();var original=item.transform.localPosition;var rotation=item.transform.localRotation;
@@ -256,11 +276,56 @@ static class BodyRenderTests
             Check(weapon.Bind(item)&&weapon.PartCount==1);var extra=WeaponMesh(item);Time.unscaledTime=2;Check(weapon.Bind(item)&&weapon.PartCount==2);
             extra.enabled=false;weapon.Show(f.Player,true);Check(weapon.LastVisibleParts==1);
         });
+        Case("equipment-source-switch-reuses-hand-alignment-and-clears-old-parts",()=>{
+            var f=new Fixture();
+            var anchor=Node("comparison-hand",f.Model.transform).transform;
+            anchor.localPosition=new Vector3(1,2,3);
+            anchor.localRotation=Quaternion.Euler(10,20,30);
+            var fps=f.Item();
+            var native=f.Item(false);
+            var skin=Node("native-skin",native.transform).AddComponent<SkinnedMeshRenderer>();
+            skin.forceRenderingOff=true;
+            using var view=new WorldWeaponView();
+            foreach(var source in new[]{fps,native,fps})
+            {
+                Check(view.Bind(source,anchor)&&view.HasDrawableParts&&view.HasRightGrip);
+                view.Show(f.Player,true);
+                Check(view.AimReference.parent==anchor&&view.PartCount==1&&view.LastVisibleParts==1);
+                Check(view.GripPositionError<.0001f&&view.GripRotationError<.02f);
+            }
+            Check(skin.Bakes==1&&skin.forceRenderingOff);
+            Check(view.Bind(fps));
+            view.Show(f.Player,true);
+            Check(view.AimReference.parent==f.Model.ItemAlign);
+        });
         Case("weapon-repeated-main-resume-restores-source-graphics",()=>{
             var f=new Fixture();var item=f.Item();using var body=new LocalBodyView(f.Player);using var fp=new FirstPersonLayerView(f.Player);using var weapon=new WorldWeaponView();
             fp.Bind(item,body);Check(weapon.Bind(item));var source=item.GetComponentsInChildren<MeshRenderer>(true).Single();
             for(int i=0;i<3;i++){fp.RestoreGraphics();weapon.Show(f.Player,true);body.Prepare();body.Show(true);fp.HideGraphics();Check(source.enabled&&source.forceRenderingOff&&weapon.LastVisibleParts==1);}
             fp.RestoreGraphics();body.Show(false);Check(source.enabled&&!source.forceRenderingOff);
+        });
+        Case("weapon-camera-passes-hide-meshes-without-reactivating-the-proxy",()=>{
+            var f=new Fixture();var item=f.Item();using var view=new WorldWeaponView();
+            var source=item.GetComponentsInChildren<MeshRenderer>(true).Single();
+            Check(view.Bind(item));
+            var root=view.AimReference.gameObject;
+            var mesh=root.GetComponentsInChildren<MeshRenderer>(true).Single();
+            Check(root.activeInHierarchy&&mesh.enabled&&mesh.forceRenderingOff,"new proxy must stay hidden until the main pass");
+            for(int pass=0;pass<3;pass++)
+            {
+                view.Show(f.Player,true);
+                Check(!mesh.forceRenderingOff&&view.LastVisibleParts==1,"main pass must draw the equipped part");
+                view.Show(f.Player,false);
+                Check(mesh.forceRenderingOff&&root.activeInHierarchy,"auxiliary camera must hide the draw without disabling the hierarchy");
+            }
+            source.enabled=false;
+            view.Show(f.Player,true);
+            Check(mesh.forceRenderingOff&&view.LastVisibleParts==0,"hidden source parts must remain hidden");
+            source.enabled=true;
+            view.Show(f.Player,true);
+            Check(!mesh.forceRenderingOff&&root.ActiveTransitions==0&&mesh.EnableTransitions==0,"camera passes and source visibility must leave registration stable");
+            view.Dispose();
+            Check(mesh.forceRenderingOff&&root.Destroyed,"retired proxy must hide immediately and be destroyed");
         });
         Case("removed-weapon-part-proxy-is-retired",()=>{
             var f=new Fixture();var item=f.Item();using var weapon=new WorldWeaponView();Check(weapon.Bind(item));var source=item.GetComponentsInChildren<MeshRenderer>(true).Single();

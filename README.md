@@ -2,6 +2,34 @@
 
 GTFO本机第三人称镜头、配套HUD与共享接口库。**HUD0.13.0在DivisionV3/Compact之外新增四角版`FourCorner`与角色环绕`Radial`：`[Presentation] Style`选择启动样式，F5在有效本机第三人称下循环`DivisionV3→FourCorner→Radial→Compact`。DivisionV3保留0.12.1腰胯信息簇，Compact保留0.11.4竖向布局，现有个人CFG和DivisionV3参数不重置。HUD0.13.1增加供PreLuna.ModControl使用的控制API（角色旁面板/个人/队伍/场景/提示区开关及面板缩放/宽度），CFG改为安全行级写入；现有HUD行为不变。ThirdPerson0.6.3新增5字段控制API（镜头距离/右肩偏移/支点高度偏移/肩射距离/左肩），供ModControl安全行级写入。** 第三人称0.6.2身体比例修复已获用户2026-11-05第一／第三人称均正常反馈；MicroMaster0.5.17沿用既有验收。本地验收与正式发布分别管理。
 
+2026-11-19 **阶段 0–1b 收尾/第一阶段发布候选**：ThirdPerson 0.6.30＋HUD 0.15.2＋ModControl 0.3.5 已完成 1a/1b、原版提示抑制、控制 API 和 ModControl 页实机确认。阶段 2（交互射线对齐）**决策不实施**：当前 1a/1b 已满足中心点/真实目标/短提示需求，没有固定补偿实例，且阶段 2 会改原版交互 look-ray，风险和维护面高于收益。实验设计、2a/2b/2c 流程及不实施理由见[阶段 2 实验设计与不实施说明](阶段2-实验设计与不实施说明.md)。HUD 两个 1b 开关源码默认 false、本机个人 CFG true；只影响本机 HUD 屏幕，不影响其他玩家。本次为本地发布候选，不自动提交/推送/安装。
+
+2026-11-18 **ThirdPerson 0.6.30 相机恢复修复候选**。主画面结束时立即恢复相机和裁剪参数，移除恢复阶段额外执行的 `RunVisibility`、`C_CameraUpdate` 和 `SortAndUpdateLights`，原版预剔除继续负责场景可见性和灯光更新。此版本只调整 ThirdPerson 的相机恢复。门口、开灯、F6 切换和头戴画面联动仍需实测。
+
+2026-11-18 **ThirdPerson 0.6.29 装备副本可见性修复候选**。三人称装备网格保持激活，相机切换和渲染恢复只通过 `Renderer.forceRenderingOff` 控制副本是否绘制，消除每次相机渲染前后整棵装备副本的激活切换。本机实际开灯与交互仍走游戏原版路径，原生场景报错的变化待实机确认。
+
+2026-11-18 **ThirdPerson 0.6.28 卡顿与生命周期修复候选**。资格失效时立即恢复并释放，恢复后须在至少三个连续帧中观察到相同绑定且持续至少 75 ms，才在 `LateUpdate` 重建。预剔除回调只使用当前帧准备好的身体与装备，肩射使用最近实际渲染过的匹配绑定。释放阶段移除了模型诊断扫描。自动卡顿记录默认关闭，启用后在后台记录帧间隔、释放原因和绑定／准备耗时，F8 完整诊断仍可手动使用。UnityPlayer 崩溃尚无原生调用栈，实机稳定性和帧时间待验证。
+
+2026-11-18 **ThirdPerson0.6.27回退0.6.26软挂起，修复崩溃风险**：0.6.26 为减少身体重建，把短暂 Gate/缺模型/相机不可用改为保留 player/body/weapon 的 `NativeDisplay` 软挂起；随后出现 UnityPlayer `0xc0000005` 崩溃（Windows WER 2026-11-18 09:44:29，GTFO.exe/UnityPlayer.dll，无托管栈）。保留已释放/已替换的原生 Unity 对象跨越焦点、菜单或场景生命周期有 use-after-free 风险；0.6.27 恢复这些路径的 `Release()`，回退到 0.6.25 的稳定生命周期；保留自动快照过滤（跳过 player/body 未就绪、最多8次）和 `lastSuspendReason` 诊断字段。场景/指针测试通过；已构建、未安装，稳定性和卡顿仍需实机确认。
+
+2026-11-18 **ThirdPerson0.6.26修复短暂Gate导致的整身重建卡顿**：自动快照显示卡顿期间 `generation` 递增、`player=0`/`bodyRenderers=0`、`detail=body-skinning-warmup`，但玩家/模型指针未变——不是模型切换，而是 `Gate`（Focus/UnsupportedState/NoPlayer）走 `Release()` 全量销毁后下一帧重新创建身体并等待原生蒙皮。0.6.26 尝试软挂起保留缓存，但因崩溃风险已由 0.6.27 回退，不再提供安装。
+
+2026-11-18 **ThirdPerson0.6.25卡顿自动快照诊断**：新增 `[调试] 卡顿自动快照`（默认关闭）、`卡顿阈值毫秒`/`卡顿冷却秒`。有效本机第三人称中帧间隔超过阈值时自动写 F8 快照，记录当时场景、装备、相机、交互目标、指向数据和卡顿帧间隔；默认关闭，不改游戏行为。用于捕捉 0.15.1 后的偶发掉帧；场景/指针测试通过；已构建、未安装、未实机。
+
+2026-11-19 **HUD0.15.2阶段1b控制API与ModControl接入**：HUD 控制 API 新增 `shortPrompt`/`hideNativePrompt` 两个布尔项（默认 false，写入 `[Scene]` 的 `ShortPrompt`/`HideNativePrompt`），ModControl 0.3.5 的“第三人称HUD”页新增“1b 短提示/1b 隐藏原版提示”开关。源码/CFG 默认仍为关闭；本机个人 CFG 可保持 true。配置是**本机客户端 HUD 视觉设置**，只影响本机屏幕，不写服务器、不改原版交互，也不会同步给其他玩家。CanvasGroup 隐藏/恢复新增离线回归。HUD 场景/控制/ModControl 适配测试通过；已构建、未安装、未实机。
+
+2026-11-18 **HUD0.15.1修复原版提示抑制的每帧SetActive风险**：0.15.0在短提示激活时每帧对原版 `m_interactPrompt.gameObject.SetActive(false)`，游戏若每帧重新激活会反复触发UI激活/Canvas重建，可能导致掉帧和卡顿。0.15.1改为一次性取得/添加 `CanvasGroup`，只把 `alpha/interactable/blocksRaycasts` 置为隐藏值，不再切换GameObject active；恢复时还原保存值。原版提示隐藏语义不变；仍是实验开关，默认关闭。场景/指针测试通过；已构建、未安装、未实机。
+
+2026-11-18 **HUD0.15.0阶段1b原版提示抑制实验**：新增 `[Scene] HideNativePrompt`（默认关闭）。`ShortPrompt=true` 时，HUD短提示激活后尝试隐藏原版 `InteractionGuiLayer.m_interactPrompt` 的静态提示对象；目标消失/短提示关闭/HUD隐藏即恢复。该操作只改原版提示UI对象，不改交互/选择；找不到原版对象时保留原版提示。原版提示与短提示的最终单一所有权仍需实机确认。场景规则/绘制60项通过；已构建、未安装、未实机。
+
+2026-11-18 **HUD0.14.0阶段1b短提示**：新增 `[Scene] ShortPrompt`（默认关闭）。开启后，当前选中交互/补给会用贴着目标屏幕位置的短提示替代HUD交互卡片；四种布局共用同一绘制层，目标位置由HUD采集并经显示相机投影，靠近边缘/面板时重排，位置不可用时回退原交互卡。原版交互提示仍保留；短提示只改显示，不改原版选择/执行。场景规则/绘制60项通过；已构建、未安装、未实机。
+
+2026-11-18 **ThirdPerson0.6.24阶段1a近战眼睛基准获用户实机确认**：枪械中心/相机、近战眼睛射线偏移、目标标记、左右肩和胶枪持握/蓄力/发射测试通过。0.6.24 在持近战武器时把视角点放到眼睛射线 2.5 m 内首个命中点的投影位置，枪械/其他装备仍用屏幕中心。`[指向] 近战眼睛基准=true`默认开启，可关闭回中心点；近战武器判定为 `ItemDataBlock.inventorySlot==GearMelee`。目标标记/黄色 × 行为不变。武器指向语义、颜色说明和胶枪两次回退修复记录见[指向性设计](第三人称指向性设计方案.md#1a-实机结果与武器指向语义)。3程序集构建通过，PointerProjection 11项与既有回归通过；已安装并由用户实机确认。
+
+2026-11-17 **ThirdPerson0.6.23阶段1a视角点与选中目标标记**：有效本机第三人称新增中心白点和原版选中交互目标的轻量括号；目标标记替代旧青色圈，锚定 `m_bestSelectedInteract.Root`/碰撞体中心，只读、不改原版选择/弹道/近战命中。`[指向] 视角点`/`[指向] 目标标记`默认开启；F12 阶段0调试覆盖层开启时由调试标记接管。3程序集构建通过，PointerProjection 11项与既有回归通过；未启动游戏、未安装，1a仍需实机确认。
+
+2026-11-17 **ThirdPerson0.6.22阶段0指向调试覆盖层与胶枪回退修复**：新增默认关闭的F12只读覆盖层和F8快照`pointer`字段，显示屏幕中心、相机射线命中、眼睛射线命中、原版当前选中目标（`m_bestSelectedInteract`/`Root`）、当前交互物（`m_currentInteractionObj`）和`LG_WeakLock`候选；不改原版选择、弹道或近战命中。0.6.21修复`AttackFallback`；0.6.22进一步修正`SupportsEquipmentHolding`把`GearClass`胶枪当成消耗品导致的`equipment-action`回退，并为F9交换左右肩增加日志。3程序集构建通过，新增PointerProjection 10项与既有回归全部通过；未启动游戏、未安装，实机标定待做。
+
 2026-11-09 **ThirdPerson0.6.3少量可写控制API**：新增 `ThirdPersonControlApi`、`ThirdPersonControlState`、`ThirdPersonControlFileStore`，通过 `GetSnapshotJson`/`ValidateJson`/`SetPersistentJson` 供 ModControl 读取/修改镜头距离、右肩偏移、支点高度偏移、肩射距离和左肩。写入期间临时关闭 `Config.SaveOnConfigSet`，安全行级替换后恢复，保留注释/未知键；F9/F10 等内部热键保存会被状态吸收，外部改动返回冲突。新增目标侧存储 3 项、状态 4 项测试；ModControl 侧新增适配器 3 项测试。已构建并安装，已由用户实机确认正常。
 
 2026-11-08 **HUD0.13.1控制API与安全配置写入**：新增 `ThirdPersonHudControlApi`（`GetSnapshotJson`/`ValidateJson`/`SetPersistentJson` 与类型化入口）、`HudConfigFileStore` 和 `HudControlState`。ModControl 可通过类型名隔离的 JSON 桥读取/修改五个本地视觉开关及面板缩放/宽度，不静态引用 HUD 程序集。写入只更新受管段/键，保留注释、未知键和其他 HUD 设置；文件在打开后被外部修改时拒绝覆盖并返回冲突。HUD 自身的 `Config.SaveOnConfigSet` 在初始化后关闭，避免整文件重写。新增 `HudConfigFileStoreTests` 4 项、`HudControlStateTests` 5 项，HUD 测试共 33 组通过；未运行游戏，页面/控件与真实 CFG 写入已由用户实机确认正常。控制 API 为可选能力，未安装 ModControl 时 HUD 仍按原配置独立运行。
@@ -10,15 +38,15 @@ GTFO本机第三人称镜头、配套HUD与共享接口库。**HUD0.13.0在Divis
 
 2026-11-06 **HUD0.13.0新增两套可切换布局**：`FourCorner`按v1四角线框重做任务、队伍、个人状态和装备四个屏幕边角面板；`Radial`按v2角色环绕线框绘制腰部生命/感染弧、肩线队伍标签、角色左侧任务标签和脚下装备条，圆心跟随当前主相机的角色腰部投影。两者只复用已验收的个人、队伍、场景数据与有效性规则，不伪造任务距离、拾取流水、扫描秒数或搬运进度。`DivisionV3`与`Compact`绘制路径未改；本版未运行游戏，仍需实机确认字体、遮挡、不同分辨率与手柄场景。
 
-[组件与安装](#modules) · [按键与配置](#usage) · [HUD视觉目标](#hud-visual-target) · [Contracts用途](#contracts) · [依赖与联动](#relations) · [开发与排查](#development) · [镜头长期方案](#camera-roadmap) · [来源说明](#sources)
+[组件与安装](#modules) · [按键与配置](#usage) · [HUD视觉目标](#hud-visual-target) · [Contracts用途](#contracts) · [依赖与联动](#relations) · [开发与排查](#development) · [装备实现与验收](第三人称装备实现与验收.md) · [镜头长期方案](#camera-roadmap) · [第三人称指向性设计](第三人称指向性设计方案.md) · [来源说明](#sources)
 
 <a id="modules"></a>
 ## 组件与安装
 
 | 组件 | 当前版本／接口 | 修改入口 | 职责 |
 | --- | --- | --- | --- |
-| `ThirdPerson` | 0.6.3（5字段可写控制API；待实测） | [ThirdPerson/src](ThirdPerson/src)、[tests](ThirdPerson/tests) | 镜头跟随、观察、肩射、碰撞与身体显示；提供 ModControl 控制API |
-| `ThirdPersonHUD` | 0.13.1（0.13.0四角/环绕＋ModControl控制API；待实测） | [ThirdPersonHUD/src](ThirdPersonHUD/src)、[tests](ThirdPersonHUD/tests) | 读取有效视角状态并在四种布局间切换绘制HUD；提供面板/个人/队伍/场景/提示区控制API |
+| `ThirdPerson` | 0.6.30（相机恢复修复候选） | [ThirdPerson/src](ThirdPerson/src)、[tests](ThirdPerson/tests) | 镜头跟随、观察、肩射、碰撞与身体显示，提供 ModControl 控制API |
+| `ThirdPersonHUD` | 0.15.2（0.15.2 1b控制API/ModControl；0.15.1 CanvasGroup抑制；0.15.0原版提示抑制；0.14.0 1b短提示；0.13.0四角/环绕） | [ThirdPersonHUD/src](ThirdPersonHUD/src)、[tests](ThirdPersonHUD/tests) | 读取有效视角状态并在四种布局间切换绘制HUD；提供面板/个人/队伍/场景/提示区/1b提示控制API |
 | `ThirdPerson.Contracts` | API 1；无独立插件版本 | [Shared/ThirdPerson.Contracts/src](Shared/ThirdPerson.Contracts/src)、[tests](Shared/ThirdPerson.Contracts/tests) | 共享数据、接口和HUD有效性规则，非独立MOD |
 
 精确版本、GUID、编译依赖和测试入口以[repo.json](repo.json)为准。`src`为活动源码，`tests`为测试，跨组件调度见[IntegrationTests/recipes.json](IntegrationTests/recipes.json)。
@@ -49,7 +77,7 @@ Compact个人页只显示一次当前装备、其余有效装备与实际持有�
 | `PreLuna.ThirdPerson.Contracts.dll` | 与镜头DLL同目录，仅保留一份 |
 | `PreLuna.ThirdPersonHUD.dll` | `BepInEx/plugins/本地定制/PreLuna.ThirdPersonHUD/` |
 
-现装镜头0.6.2已通过比例修复验收，SHA256为`75D3C4FF20F1F07D0F3F0473903EB1E82EFF4E389A714A93DEBB39F118203287`，无需再次替换镜头；本次HUD升级按上方0.13.0说明单独替换。Contracts和微操大师沿用现装匹配版本，无新增依赖或资源。重进关卡残缺身体的关联修复位于MicroMaster0.5.17；不要用旧微操大师替换已验收组合。
+现装镜头 0.6.19 已获用户实机确认，包含此前通过的身体比例修复。镜头增量沿用上表布局，只替换镜头 DLL；Contracts、HUD 和微操大师沿用现装匹配版本，无新增依赖或资源。重进关卡残缺身体的关联修复位于 MicroMaster 0.5.17，继续使用已验收的兼容版本。
 
 普通玩家使用[Releases](https://github.com/PreLuna/GTFO-Third-Person-Camera-and-HUD/releases)中实际发布的安装包及其版本说明。当前本地验收不表示对应版本已发布；Source code／Code ZIP不是安装包。增量更新先退出游戏，按当次清单只替换指定文件，避免重复加载；个人CFG不随包分发。
 
@@ -62,7 +90,11 @@ Compact个人页只显示一次当前装备、其余有效装备与实际持有�
 | --- | --- |
 | 开关第三人称 | F6；全新配置默认关闭，已有启动状态保留 |
 | 恢复镜头默认参数 | F7；会关闭第三人称并重置个人镜头设置，不用于日常对照 |
-| 保存诊断快照 | F8；输出至`BepInEx/ThirdPerson-P5-诊断` |
+| 保存诊断快照 | F8；输出至`BepInEx/ThirdPerson-P5-诊断`，schema6含阶段0`pointer`字段 |
+| 指向调试覆盖层 | F12；默认关闭，只读显示中心/相机/眼睛命中、原版选中目标、当前交互物和锁候选；CFG`[调试] 指向覆盖层=true`可默认开启，`[按键] 指向覆盖层`可改键，不改原版选择/命中 |
+| 视角点／目标标记 | 1a；CFG`[指向] 视角点`和`[指向] 目标标记`默认开启。视角点在枪械/其他装备用屏幕中心，近战默认用眼睛射线 2.5 m 内首个命中点（`[指向] 近战眼睛基准=true`，可关闭回中心）；目标标记只显示原版当前选中交互目标，替代旧青色圈，不改原版选择/命中；F12调试覆盖层开启时由调试标记接管 |
+| 1b短提示 | CFG`[Scene] ShortPrompt`/`HideNativePrompt`默认关闭；开启后用贴近目标位置的短提示替代HUD交互/补给卡片，位置不可用时回退卡片；`HideNativePrompt` 用 `CanvasGroup` 隐藏原版静态提示，不改原版选择/执行。两个开关已暴露为 HUD 控制 API `shortPrompt`/`hideNativePrompt`，可在 ModControl“第三人称HUD”页运行中切换；仅本机客户端视觉，不影响其他玩家 |
+| 卡顿自动快照 | CFG `[调试] 卡顿自动快照`默认关闭。关卡内开启第三人称后，帧间隔超过`卡顿阈值毫秒`（默认 80）时后台写入 `BepInEx/ThirdPerson-P5-诊断/卡顿-*.json`，冷却`卡顿冷却秒`（默认 2），每次启动最多 8 份。记录资格、释放原因、绑定代数及耗时。 |
 | 手动换肩 | F9；改变镜头侧，不改变持枪手 |
 | 切换预设 | F10；Balanced均衡→Combat战斗→Traversal探索→Stable舒适 |
 | 开始／结束有界性能采样 | F11；先在CFG填写固定条件，同地图／路线／画质／负载比较 |
@@ -204,23 +236,48 @@ ThirdPerson通过可选桥与[机器人／摄像头仓](https://github.com/PreLu
 <a id="development"></a>
 ## 开发与排查
 
+2026-11-18 **ThirdPerson 0.6.27 回退 0.6.26 软挂起崩溃风险已构建**。0.6.26 的 `NativeDisplay` 软挂起保留 player/body/weapon 原生对象跨越 Gate/菜单/场景，出现 UnityPlayer `0xc0000005` 崩溃（WER 09:44:29，无托管栈）。0.6.27 恢复 Gate/缺模型/相机不可用路径的 `Release()`，回到 0.6.25 生命周期；保留自动快照过滤（跳过 player/body 未就绪、最多8次）和 `lastSuspendReason`。场景/指针测试通过；已构建、未安装，稳定性/卡顿仍需实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPerson 0.6.26 短暂 Gate 软挂起卡顿修复已构建，因崩溃风险回退**。0.6.25 快照显示卡顿对应 `generation` 递增、`player=0`/`bodyRenderers=0`、`detail=body-skinning-warmup`，而玩家/模型指针不变：`Gate` 的 `Release()` 全量销毁身体，下一帧重建并等待原生蒙皮。0.6.26 改为软挂起，但随后崩溃；0.6.27 回退。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPerson 0.6.25 卡顿自动快照诊断已构建**。新增 `[调试] 卡顿自动快照=false`、`卡顿阈值毫秒=80`、`卡顿冷却秒=2`；在有效本机第三人称中检测帧间隔，超阈值自动调用 F8 快照并记录 `stall.lastFrameMs`、场景名、装备、相机、交互目标/指向数据；默认关闭。用于捕捉 0.15.1 后仍偶发的掉帧。场景/指针测试通过；已构建、未安装，需实机复现时启用。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-19 **ThirdPersonHUD 0.15.2 阶段1b 控制 API/ModControl 接入已构建**。HUD 控制 API 新增 `shortPrompt`/`hideNativePrompt`（默认 false，分别写入 `Scene.ShortPrompt`/`Scene.HideNativePrompt`）；ModControl 0.3.5 的“第三人称HUD”页新增两个开关，运行中即时保存。新增 `HudNativePromptVisibility` 小 seam 和 CanvasGroup 隐藏/恢复回归（不切换 GameObject active）。HUD 场景 61 项、控制状态/ModControl 适配测试通过；未安装，需实机确认 ModControl 页和运行中切换。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPersonHUD 0.15.1 修复原版提示抑制的每帧 SetActive 风险**。0.15.0 每帧对原版 `m_interactPrompt.gameObject` 调用 `SetActive(false)`；若游戏每帧重新激活，会反复触发 UI 激活/Canvas 重建，可能造成掉帧卡顿。0.15.1 改为一次性取得/添加 `CanvasGroup`，只写 `alpha/interactable/blocksRaycasts`，不再切换 GameObject active；恢复时还原保存值。原版提示隐藏语义不变，`HideNativePrompt` 仍默认关闭。场景/指针测试通过；已构建、未安装，仍需实机确认掉帧是否消失。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPersonHUD 0.15.0 阶段1b 原版提示抑制实验已构建**。新增 `[Scene] HideNativePrompt`（默认关闭）：短提示激活时读取 `GuiManager.InteractionLayer.m_interactPrompt`，隐藏其 GameObject；提示失效/关闭/HUD 隐藏时恢复。只改提示对象，不改原版交互；找不到对象时保留原版提示。场景规则/绘制60项与既有回归通过；已构建、未安装，仍需实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPersonHUD 0.14.0 阶段1b 短提示已构建**。新增 [HudScenePromptProjection](ThirdPersonHUD/src/Panel/HudScenePromptProjection.cs)、`HudScenePrompt`、`HudScenePrompt` 绘制；HUD 采集当前交互/补给目标世界点，映射成贴着目标的短提示，位置不可用时回退原交互卡；四种布局共用绘制层。`[Scene] ShortPrompt`默认关闭；原版交互提示仍保留，1b 本版不隐藏原版提示。场景规则/绘制60项通过；已构建、未安装，仍需实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-18 **ThirdPerson 0.6.24 阶段1a 近战眼睛基准获用户实机确认**。用户实测近战命中跟随原版眼睛射线（红点），0.6.24 在持近战 `GearMelee` 时把视角点放到 `fps.Position/Forward` 射线 2.5 m 内首个命中点的投影位置；`[指向] 近战眼睛基准=true`默认开启，可关闭回屏幕中心。枪械/其他装备仍用中心；目标标记和黄色 × 不变。武器指向语义和胶枪两次回退修复见[指向性设计](第三人称指向性设计方案.md#1a-实机结果与武器指向语义)。3 程序集构建通过，PointerProjection 11 项与既有回归通过；已安装并由用户实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-17 **ThirdPerson 0.6.23 阶段1a 视角点与选中目标标记已构建**。新增 [ThirdPersonPointerOverlay](ThirdPerson/src/Runtime/ThirdPersonPointerOverlay.cs) 和 `PointerProjection` 的视口 clamp；有效本机第三人称绘制中心白点，选中交互目标绘制轻量括号，替代旧青色圈。`[指向] 视角点`/`[指向] 目标标记`默认开启；F12 阶段0调试覆盖层开启时由调试标记接管。3 程序集构建通过，PointerProjection 11 项与既有回归通过；未启动游戏、未安装，1a 仍需实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-17 **ThirdPerson 0.6.22 阶段0 指向调试覆盖层与胶枪回退修复已构建**。新增 [PointerProjection](ThirdPerson/src/Core/PointerProjection.cs)、[ThirdPersonPointerDebug](ThirdPerson/src/Runtime/ThirdPersonPointerDebug.cs)、[PointerProjectionTests](ThirdPerson/tests/PointerProjectionTests.cs)，并在 [UnityCameraWorld](ThirdPerson/src/Runtime/UnityCameraWorld.cs) 增加只读 `RayHit`；F12 默认关闭，F8 快照 schema6 新增 `pointer`。0.6.22 修正 `SupportsEquipmentHolding` 把 `GearClass` 胶枪归为消耗品而触发的 `equipment-action` 回退，并为 F9 换肩写日志。3 程序集构建通过，PointerProjection 10 项与既有回归通过；未启动游戏、未安装，F12 覆盖层和胶枪回退仍需实机确认。见[维护摘要](../../维护记录/验收摘要.md)。
+
+2026-11-16 **ThirdPerson 0.6.19 装备阶段已收尾**。胶枪持握和泡沫发射、所测近战持握与动作、四类资源包及所测普通道具已有实机反馈。远光手电的持握及右键回退修正通过复测。各项范围、原版复用办法、F8 排查和仍待验证的动作见[装备实现与验收](第三人称装备实现与验收.md)。
+
 | 修改范围 | 实际入口 |
 | --- | --- |
+| 阶段1a视角点/目标标记 | [ThirdPersonPointerOverlay](ThirdPerson/src/Runtime/ThirdPersonPointerOverlay.cs)、[PointerProjection](ThirdPerson/src/Core/PointerProjection.cs) |
+| 阶段0指向调试 | [ThirdPersonPointerDebug](ThirdPerson/src/Runtime/ThirdPersonPointerDebug.cs)、[PointerProjection](ThirdPerson/src/Core/PointerProjection.cs)、[PointerProjectionTests](ThirdPerson/tests/PointerProjectionTests.cs) |
 | 支点跟随与运动采样 | [CameraMotionSolver](ThirdPerson/src/Camera/CameraMotionSolver.cs)、[CameraKinematics](ThirdPerson/src/Camera/CameraKinematics.cs) |
 | 观察、输入与交接 | [CameraOrientationSolver](ThirdPerson/src/Camera/CameraOrientationSolver.cs)、[CameraInputAdapter](ThirdPerson/src/Runtime/CameraInputAdapter.cs)、[ThirdPersonObservation](ThirdPerson/src/Runtime/ThirdPersonObservation.cs) |
 | 连续构图、反馈与风格合成 | [CameraTransitionSolver](ThirdPerson/src/Camera/CameraTransitionSolver.cs)、[CameraActionFeedbackSolver](ThirdPerson/src/Camera/CameraActionFeedbackSolver.cs)、[CameraStyle](ThirdPerson/src/Camera/CameraStyle.cs) |
 | 最终空间约束与恢复 | [SpatialCameraSolver](ThirdPerson/src/Collision/SpatialCameraSolver.cs)、[SpatialCameraRefinement](ThirdPerson/src/Collision/SpatialCameraRefinement.cs)、[UnityCameraWorld](ThirdPerson/src/Runtime/UnityCameraWorld.cs) |
 | 身体、持枪与恢复 | [LocalBodyView](ThirdPerson/src/Body/LocalBodyView.cs)、[NativeBodyHolding](ThirdPerson/src/Body/NativeBodyHolding.cs)、[NativeBodyIk](ThirdPerson/src/Body/NativeBodyIk.cs)、[RenderScope](ThirdPerson/src/Runtime/RenderScope.cs) |
+| 装备模型来源、复制与握点 | [NativeThirdPersonEquipmentView](ThirdPerson/src/Body/NativeThirdPersonEquipmentView.cs)、[WorldWeaponView](ThirdPerson/src/Body/WorldWeaponView.cs) |
 | 模式、配置、生命周期与诊断 | [ThirdPersonRuntime](ThirdPerson/src/Runtime/ThirdPersonRuntime.cs)、[PluginSettings](ThirdPerson/src/Runtime/PluginSettings.cs)、[ThirdPersonCameraStages](ThirdPerson/src/Runtime/ThirdPersonCameraStages.cs) |
 | 共享接口／HUD | [Shared源码](Shared/ThirdPerson.Contracts/src)、[ThirdPerson桥](ThirdPerson/src/Bridge)、[HUD源码](ThirdPersonHUD/src) |
 
 当前生产顺序：主线程采样与资格检查→观察／模式协调→支点、构图及反馈合成→最终碰撞与环境恢复→主画面渲染及HUD发布。开火可重新检查几何，但不再次推进输入、惯性、步态、碰撞历史或恢复计时。[Core/ViewContracts.cs](ThirdPerson/src/Core/ViewContracts.cs)是镜头内部数学数据，与Shared公共契约分开维护。
 
-本机身体持续蒙皮更新，主画面通过绘制门控显示，Ghost按原生登记和shader精确排除。支持的枪械复用原生身体动画与独立IK，真实FPS物品、原有IK及网络身份保持原版；换弹暂回第一人称，工具／近战沿既有回退。异常／失去身份／离关时恢复原状态，不通过反复激活Renderer、重播动画或移动玩家坐标制造镜头重量。
+本机身体持续蒙皮更新，主画面通过绘制门控显示，Ghost按原生登记和shader精确排除。支持的2/3枪械复用原生身体动画与独立IK，真实FPS物品、原有IK及网络身份保持原版；换弹暂回第一人称。装备扩展共用模型复制和持握流程，按物品在原版装配与本机手持模型之间选来源。独立的「实验性原生装备方案A」通用挂载开关仍默认关闭。
 
 F8诊断重点：`cameraStages`为速度、当前／目标构图、反馈、空间原因和恢复探测；`observation`为按键、进入／拒绝及移动样本；`lastModelRender`为最近主出图的身体、Ghost、动画／IK与恢复状态。最近主出图是历史样本，必须结合帧号与当前模式判断。现场异常先保留快照、聊天原文、操作顺序、版本和预设，再判定输入、空间、身体或关联MOD归属。
 
-0.6.1起F8快照schema5新增`bodySizeComparison`：在渲染作用域外按4个玩家槽读取本机／队友的根、模型与Animator本地／世界缩放、最多8层父链、可用的人形骨段世界长度及模型相对玩家根偏移。`lastModelRender.scaleBefore/scaleDuring`保存最近主出图前／中的数值副本，不保留Unity对象；诊断本身不激活模型、推进动画或更改尺度，缺失骨骼写null。比较时请让角色在平地站定、姿态相近，依次在第三人称普通站立、肩射和F6第一人称各按F8；记录第三人称开关状态并同时保留截图。肩射图与普通探索图分别判断，不能把占屏比例当世界尺寸。当前槽位样本与历史主出图帧号不同，`referenceDepthFromLastMain`只供静止对照；骨段长度不等于服装外轮廓或碰撞体大小。实现入口为[身体尺寸诊断](ThirdPerson/src/Runtime/ThirdPersonBodySizeDiagnostics.cs)与[渲染尺寸副本](ThirdPerson/src/Body/BodyScaleSnapshot.cs)。
+0.6.20起F8快照schema6新增`pointer`（阶段0指向调试：中心、相机/眼睛射线、原版选中、当前交互物、锁候选和像素偏移）；0.6.1引入的schema5 `bodySizeComparison`保留：在渲染作用域外按4个玩家槽读取本机／队友的根、模型与Animator本地／世界缩放、最多8层父链、可用的人形骨段世界长度及模型相对玩家根偏移。`lastModelRender.scaleBefore/scaleDuring`保存最近主出图前／中的数值副本，不保留Unity对象；诊断本身不激活模型、推进动画或更改尺度，缺失骨骼写null。比较时请让角色在平地站定、姿态相近，依次在第三人称普通站立、肩射和F6第一人称各按F8；记录第三人称开关状态并同时保留截图。肩射图与普通探索图分别判断，不能把占屏比例当世界尺寸。当前槽位样本与历史主出图帧号不同，`referenceDepthFromLastMain`只供静止对照；骨段长度不等于服装外轮廓或碰撞体大小。实现入口为[身体尺寸诊断](ThirdPerson/src/Runtime/ThirdPersonBodySizeDiagnostics.cs)与[渲染尺寸副本](ThirdPerson/src/Body/BodyScaleSnapshot.cs)。
 
 0.6.2的[LocalBodyScale](ThirdPerson/src/Body/LocalBodyScale.cs)只拥有独立身体／Animator视觉根上的已观测均匀1.2倍修正。在LateUpdate、蒙皮前准备并跨相机保持稳定，先完成一帧身体预热再显示；不在OnPreCull反复缩放。其他尺度、玩家父级尺度与FPS手臂保持原样；外部写入不同尺度时不回写旧值。换弹、第一人称开镜、F6关闭、失去资格、释放或异常清理沿现有EndPresentation恢复捕获的原始值。F8的`lastModelRender.body.bodyScale`记录修正状态、原值和目标值：本次样本正常第三人称应为1，回第一人称应恢复1.2。第三人称只是把约20%的既有放大去掉，并不保证与任何距离的队友占屏大小相同；约0.6米的原有模型后移本轮不改。配置保留schema9，新增开关缺省开启，不要求删除个人CFG。
 

@@ -110,9 +110,9 @@ namespace PreLuna.ThirdPerson.Runtime
             // This prefix runs before the native method reads FlatForward/FlatRight.
             if(lookInput.Orientation.Active&&MoveRequested(local))EndObservation(local,true,"move");
         }
-        [HideFromIl2Cpp] void ReleaseObservation()
+        [HideFromIl2Cpp] void ReleaseObservation(bool allowHandoff=true)
         {
-            var local=Local();
+            var local=allowHandoff&&lookInput.Orientation.Active?Local():null;
             EndObservation(local,ObservationOwner(local)&&Gate(local)==FallbackReason.None&&OwnObservationView(),"release");
             lastLookRenderFrame=-1;
         }

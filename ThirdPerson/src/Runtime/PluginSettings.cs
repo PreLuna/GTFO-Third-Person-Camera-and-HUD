@@ -12,18 +12,27 @@ using System.Collections.Generic;
 
 namespace PreLuna.ThirdPerson.Runtime
 {
+    internal enum MeleeComparisonSource { FirstPerson, NativeThirdPerson, Auto }
+
     internal sealed class PluginSettings
     {
+        internal readonly ConfigEntry<bool> EquipmentCopyExperiment;
+        internal readonly ConfigEntry<MeleeComparisonSource> MeleeModelSource;
         internal readonly ConfigEntry<bool> Enabled;
         internal readonly ConfigEntry<bool> IndependentLook;
         internal readonly ConfigEntry<KeyCode> Observe;
         internal readonly ConfigEntry<float> ObserveYaw;
         internal readonly ConfigEntry<KeyCode> Toggle,Reset,Snapshot;
+        internal readonly ConfigEntry<bool> PointerOverlay;
+        internal readonly ConfigEntry<KeyCode> PointerOverlayKey;
+        internal readonly ConfigEntry<bool> PointerDot,PointerTargetMarker,PointerMeleeEyeBasis;
+        internal readonly ConfigEntry<bool> StallSnapshot;
+        internal readonly ConfigEntry<float> StallThresholdMs,StallCooldownSeconds;
         readonly ConfigEntry<float> distance,shoulder,height,vertical,release,radius,skin,minimum,near;
         internal readonly ConfigEntry<int> CollisionMask;
         internal readonly ConfigEntry<float> DoubleClickWindow,ShoulderDistance,ShoulderFov;
         internal readonly ConfigEntry<KeyCode> SwapShoulder,CyclePreset;
-        internal readonly ConfigEntry<bool> LeftShoulder,MovementFeedback,BodyFade,NativeGripPose,NativeSyncedHolding,NormalizeBodyScale;
+        internal readonly ConfigEntry<bool> LeftShoulder,MovementFeedback,BodyFade,NativeGripPose,NativeSyncedHolding,NormalizeBodyScale,ExperimentalMeleeBodyHolding,ExperimentalNativeEquipmentA;
         internal readonly ConfigEntry<CameraPreset> Preset;
         readonly ConfigEntry<float> exploreFov,runDistance,runShoulder,runHeight,runFov,crouchDistance,crouchShoulder,crouchHeight,crouchFov,aimShoulder,aimHeight;
         readonly ConfigEntry<float> positionResponse,distanceResponse,shoulderResponse,fovResponse,maxLag,feedbackAmplitude,releaseDelay,releaseDeadband,recoveryDelay,recoveryDistance,fadeNear,fadeFar;
@@ -56,6 +65,14 @@ namespace PreLuna.ThirdPerson.Runtime
             Toggle=config.Bind("按键","开关",KeyCode.F6,"仅本体可操作时切换第三人称。");
             Reset=config.Bind("按键","恢复默认",KeyCode.F7,"恢复镜头默认参数并关闭第三人称。");
             Snapshot=config.Bind("按键","诊断快照",KeyCode.F8,"保存当前状态及恢复检查，不逐帧写日志。");
+            PointerOverlay=config.Bind("调试","指向覆盖层",false,"阶段0调试：显示中心点、相机射线命中、眼睛射线命中、原版选中目标、当前交互物和锁候选。默认关闭；F12切换。只读诊断，不改变原版选择或命中。");
+            PointerOverlayKey=config.Bind("按键","指向覆盖层",KeyCode.F12,"阶段0调试覆盖层开关；默认F12。");
+            PointerDot=config.Bind("指向","视角点",true,"1a：有效本机第三人称显示视角点；近战开启眼睛基准时显示眼睛射线命中点，其余显示屏幕中心。不改原版选择、弹道或近战命中。");
+            PointerTargetMarker=config.Bind("指向","目标标记",true,"1a：在原版当前选中交互目标上显示轻量括号；替换旧青色圈，只读，不改变原版选择。");
+            PointerMeleeEyeBasis=config.Bind("指向","近战眼睛基准",true,"近战武器的小点跟随原版眼睛射线的首个命中点（实测近战命中跟随红/眼睛点），不再固定屏幕中心；关闭则回屏幕中心。");
+            StallSnapshot=config.Bind("调试","卡顿自动快照",false,"诊断：关卡内启用第三人称时，后台写入超阈值帧间隔、释放原因、绑定代数与准备耗时。F8 仍手动记录完整快照。");
+            StallThresholdMs=config.Bind("调试","卡顿阈值毫秒",80f,new ConfigDescription("帧间隔超过该值视为卡顿并触发自动快照。",new AcceptableValueRange<float>(30,1000)));
+            StallCooldownSeconds=config.Bind("调试","卡顿冷却秒",2f,new ConfigDescription("两次自动快照的最小间隔。",new AcceptableValueRange<float>(.5f,30)));
             distance=Float(config,"距离",2.25f,.5f,4);shoulder=Float(config,"右肩偏移",.48f,-1,1);
             height=Float(config,"支点高度偏移",.1f,-.35f,.6f);vertical=Float(config,"站蹲跟随响应",12,1,40);
             release=Float(config,"离墙恢复响应",5,.5f,30);radius=Float(config,"最小检测半径",.18f,.08f,.5f);
@@ -72,8 +89,12 @@ namespace PreLuna.ThirdPerson.Runtime
             MovementFeedback=config.Bind("风格","轻微移动反馈",false,"C5位置反馈总开关，默认关闭；开启后才有起停／步态微动，肩射减弱，Stable关闭，无附加翻滚。false完全归零。");
             BodyFade=config.Bind("风格","近身局部淡出",true,"仅已知 Standard 材质允许透明淡出；其他材质保持完整可见，不再整块隐藏身体。只作用主相机。");
             NativeGripPose=config.Bind("模型","原生握点姿态",false,"实验性握点重定向，默认关闭以保留原生身体姿态。开启会额外调整主画面手臂骨骼；不重复开火或更新原版Animator，Ghost筛选始终生效。");
-            NativeSyncedHolding=config.Bind("模型","原生同步持枪",true,"标准／特殊槽枪械复用原版全身动画、手型与独立原生IK。仅驱动本机身体，真实第一人称物品、AI和网络身份保持原版；换弹暂回第一人称。优先于实验性握点重定向。");
+            NativeSyncedHolding=config.Bind("模型","原生同步持枪",true,"枪械和已开启复制实验的胶枪使用原生身体动作、手型和独立 IK。胶枪蓄力和开火时保持第三人称，枪械换弹时回第一人称。");
             NormalizeBodyScale=config.Bind("模型","第三人称标准身体比例",true,"第三人称身体准备时将已观测的本机视觉根1.2倍缩放还原为1倍；切回第一人称、换弹回退或停用时恢复原值。不改玩家根、FPS手臂或镜头参数；其他尺度保留。false对照0.6.1尺寸。");
+            ExperimentalMeleeBodyHolding=config.Bind("模型","实验性近战身体持握",false,"方案B M2a 近战静态 spike：仅把原生第三人称预制体的网格挂到 m_alignGearMelee，保留原生身体移动，隐藏第一人称；攻击/瞄准/使用仍回第一人称。默认关闭，2/3 路径完全不变；尚无自定义全身动作和双手 IK。");
+            ExperimentalNativeEquipmentA=config.Bind("模型","实验性原生装备方案A",false,"用 GTFO GearBuilder 按 ItemMode.ThirdPerson 装配近战/工具/资源包/消耗品/携带物，并挂到身体候选锚点。实验性：不设置Owner、不注册背包或同步；状态动作与部分工具锚点仍待游戏验证。默认关闭；失败时恢复第一人称。2/3 枪械路径不变。");
+            EquipmentCopyExperiment=config.Bind("模型","胶枪与近战复制实验",false,"启用胶枪、近战、资源包和道具的模型复制与右手握点对齐。近战按来源设置选择模型。资源包和道具还需启用原生同步持枪。");
+            MeleeModelSource=config.Bind("模型","近战对照模型来源",MeleeComparisonSource.Auto,"Auto 按当前近战优先装配原生第三人称模型，失败时使用第一人称模型。FirstPerson 和 NativeThirdPerson 可固定来源。");
             ConfigEntry<float> Value(string group,string name,float value,float min,float max,string unit)=>config.Bind(group,name,value,new ConfigDescription(unit,new AcceptableValueRange<float>(min,max)));
             exploreFov=Value("状态·探索","垂直视野",80,45,110,"垂直角度 °；非水平视野。");
             runDistance=Value("状态·奔跑","距离",2.6f,.5f,4,"米");runShoulder=Value("状态·奔跑","肩位",.42f,0,1,"米，方向由左右肩选择决定");runHeight=Value("状态·奔跑","高度偏移",.08f,-.35f,.6f,"米");runFov=Value("状态·奔跑","垂直视野",84,45,110,"垂直角度 °");
@@ -109,7 +130,7 @@ namespace PreLuna.ThirdPerson.Runtime
             startStopStrength=Value("动作·C5","起停强度",.5f,0,1,"无单位；水平加减速产生受限位置反馈，与步态共享移动反馈幅度预算。");
             strideLength=Value("动作·C5","步态周期距离",1.4f,.8f,2.5f,"米；一次完整步态相位的实际行进距离，不驱动人物动画。");
             actionResponse=Value("动作·C5","反馈响应",12,4,30,"秒⁻¹；起停收敛，无随机漂移、额外翻滚或重复原生后坐力。");
-            p4Entries=new ConfigEntryBase[]{SwapShoulder,CyclePreset,LeftShoulder,Preset,MovementFeedback,BodyFade,NativeGripPose,NativeSyncedHolding,NormalizeBodyScale,exploreFov,runDistance,runShoulder,runHeight,runFov,crouchDistance,crouchShoulder,crouchHeight,crouchFov,aimShoulder,aimHeight,positionResponse,distanceResponse,shoulderResponse,fovResponse,maxLag,feedbackAmplitude,releaseDelay,releaseDeadband,recoveryDelay,recoveryDistance,fadeNear,fadeFar,motionEnabled,motionHorizontal,motionRoot,motionRootLag,motionLeadSeconds,motionLeadLimit,motionLeadResponse,IndependentLook,Observe,ObserveYaw,transitionEnabled,speedStart,speedFull,speedResponse,aimEnterResponse,aimExitResponse,spatialRefinementEnabled,retractionDistance,actionFeedbackEnabled,gaitStrength,startStopStrength,strideLength,actionResponse};
+            p4Entries=new ConfigEntryBase[]{SwapShoulder,CyclePreset,LeftShoulder,Preset,MovementFeedback,BodyFade,NativeGripPose,NativeSyncedHolding,NormalizeBodyScale,ExperimentalMeleeBodyHolding,ExperimentalNativeEquipmentA,EquipmentCopyExperiment,MeleeModelSource,exploreFov,runDistance,runShoulder,runHeight,runFov,crouchDistance,crouchShoulder,crouchHeight,crouchFov,aimShoulder,aimHeight,positionResponse,distanceResponse,shoulderResponse,fovResponse,maxLag,feedbackAmplitude,releaseDelay,releaseDeadband,recoveryDelay,recoveryDistance,fadeNear,fadeFar,motionEnabled,motionHorizontal,motionRoot,motionRootLag,motionLeadSeconds,motionLeadLimit,motionLeadResponse,IndependentLook,Observe,ObserveYaw,transitionEnabled,speedStart,speedFull,speedResponse,aimEnterResponse,aimExitResponse,spatialRefinementEnabled,retractionDistance,actionFeedbackEnabled,gaitStrength,startStopStrength,strideLength,actionResponse};
             CapturePerformance=config.Bind("性能","采集",false,"显式开启一次有界采样；容量用尽或离开关卡后结束，不在默认状态逐帧写盘。");
             CaptureToggle=config.Bind("按键","性能采集",KeyCode.F11,"仅有效本体 FPS 焦点下开启/结束采样；第三人称关闭时也可采集基线。");
             PerformanceFrames=config.Bind("性能","采样帧数",3600,new ConfigDescription("60～7200 帧，记录实际帧时间；不能把逻辑测试当作实测 FPS。",new AcceptableValueRange<int>(60,7200)));
@@ -187,7 +208,7 @@ namespace PreLuna.ThirdPerson.Runtime
         }
 
         internal void Defaults()
-        { distance.Value=2.25f;shoulder.Value=.48f;height.Value=.1f;vertical.Value=12;release.Value=5;radius.Value=.18f;skin.Value=.025f;minimum.Value=.38f;near.Value=.08f;CollisionMask.Value=0;DoubleClickWindow.Value=.25f;ShoulderDistance.Value=1.35f;ShoulderFov.Value=70;Enabled.Value=false;foreach(var entry in p4Entries)entry.BoxedValue=entry.DefaultValue;Toggle.Value=KeyCode.F6;Reset.Value=KeyCode.F7;Snapshot.Value=KeyCode.F8;CaptureToggle.Value=KeyCode.F11;CapturePerformance.Value=false; }
+        { distance.Value=2.25f;shoulder.Value=.48f;height.Value=.1f;vertical.Value=12;release.Value=5;radius.Value=.18f;skin.Value=.025f;minimum.Value=.38f;near.Value=.08f;CollisionMask.Value=0;DoubleClickWindow.Value=.25f;ShoulderDistance.Value=1.35f;ShoulderFov.Value=70;Enabled.Value=false;foreach(var entry in p4Entries)entry.BoxedValue=entry.DefaultValue;Toggle.Value=KeyCode.F6;Reset.Value=KeyCode.F7;Snapshot.Value=KeyCode.F8;CaptureToggle.Value=KeyCode.F11;CapturePerformance.Value=false;PointerOverlay.Value=false;PointerOverlayKey.Value=KeyCode.F12;PointerDot.Value=true;PointerTargetMarker.Value=true;PointerMeleeEyeBasis.Value=true;StallSnapshot.Value=false;StallThresholdMs.Value=80;StallCooldownSeconds.Value=2; }
     }
 }
 

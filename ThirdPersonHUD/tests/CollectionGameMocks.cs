@@ -30,12 +30,16 @@ namespace UnityEngine
     }
     public class Transform {public Vector3 position;}
     public struct Vector3 {public float x,y,z;public Vector3(float x,float y,float z){this.x=x;this.y=y;this.z=z;}}
+    public struct Bounds {public Vector3 center;}
+    public class Collider : Object {public Bounds bounds;}
 }
 namespace TMPro
 { public class TextMeshPro : UnityEngine.Object { public string text=""; public UnityEngine.Renderer renderer=new();public new UnityEngine.GameObject gameObject=new(); } }
 public class PlayerGuiLayer
 {public PUI_Inventory? Inventory;public PUI_LocalPlayerStatus? m_playerStatus;public Player.PlayerAgent? m_player;public PUI_GameObjectives? m_wardenObjective;public PUI_ObjectiveTimer? m_objectiveTimer;public bool TimerOnMainScreenVisible;}
-public class GuiManager {static PlayerGuiLayer? player;public static bool ThrowPlayerLayer;public static PlayerGuiLayer? PlayerLayer{get=>ThrowPlayerLayer?throw new Exception("GUI unavailable"):player;set=>player=value;}public static GuiManager? Current;public SyncedNavMarkerWrapper?[] m_playerPings=new SyncedNavMarkerWrapper?[4];}
+public class GuiManager {static PlayerGuiLayer? player;public static bool ThrowPlayerLayer;public static PlayerGuiLayer? PlayerLayer{get=>ThrowPlayerLayer?throw new Exception("GUI unavailable"):player;set=>player=value;}public static InteractionGuiLayer? InteractionLayer{get;set;}public static GuiManager? Current;public SyncedNavMarkerWrapper?[] m_playerPings=new SyncedNavMarkerWrapper?[4];}
+public class PUI_InteractionPrompt { public UnityEngine.GameObject gameObject = new(); }
+public class InteractionGuiLayer { public PUI_InteractionPrompt m_interactPrompt = new(); }
 public class PUI_GameObjectives : UnityEngine.Object
 {public const int MAIN_OBJECTIVE_ID=1;public bool m_isCurrentLayer=true,ShowPreviousObjectives;public Dictionary<int,PUI_ProgressionObjective> m_progressionObjectiveMap=new();}
 public class PUI_ProgressionObjective : UnityEngine.Object {public TMPro.TextMeshPro m_header=new(),m_text=new();}
@@ -85,7 +89,7 @@ public class InputMapper
 {public static InputMapper? Current;public object? m_currentKeyMouseMap=new();public string Binding="E";public Action? OnBinding;public string DoGetBindingName(InputAction a,object map){OnBinding?.Invoke();return Binding;}}
 public class PlayerInteraction : UnityEngine.Object
 {public Player.LocalPlayerAgent? m_owner;public Interact_Base? m_bestSelectedInteract;public static bool InteractionEnabled=true;}
-public class Interact_Base : UnityEngine.Object {public bool IsSelected=true,IsActive=true,IsBlocked;public InputAction InputAction;}
+public class Interact_Base : UnityEngine.Object {public bool IsSelected=true,IsActive=true,IsBlocked;public InputAction InputAction;public UnityEngine.Transform? Root;public UnityEngine.Collider? m_colliderToOwn;}
 public class Interact_Generic : Interact_Base {public string m_displayName="门";}
 public class Interact_Pickup_PickupItem : Interact_Timed {public Func<string>? m_nameFunc;}
 public class Interact_Revive : Interact_Timed {public string m_displayName="队员";}
